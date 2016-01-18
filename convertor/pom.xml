@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<parent>
+		<artifactId>pathwaycards</artifactId>
+		<groupId>org.mskcc.cbio.pathwaycards</groupId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+	<modelVersion>4.0.0</modelVersion>
+
+	<artifactId>convertor</artifactId>
+	<packaging>jar</packaging>
+	<version>1.0-SNAPSHOT</version>
+	<name>Index Card to BioPAX Convertor</name>
+	<description>BioPAx generator module</description>
+	<!--url>http://cbio.mskcc.org/???</url-->
+
+	<properties>
+		<java.version>1.7</java.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<slf4j.version>1.6.4</slf4j.version>
+		<spring.version>3.1.0.RELEASE</spring.version>
+	</properties>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<configuration>
+						<source>1.7</source>
+						<target>1.7</target>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>tomcat-maven-plugin</artifactId>
+				<version>1.1</version>
+				<configuration>
+					<url>http://localhost:8080/manager/text</url>
+					<server>localhost</server>
+				</configuration>
+			</plugin>
+		</plugins>
+		<!-- prevent some resources from getting into war -->
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<!--excludes>
+					<exclude>???/**</exclude>
+				</excludes-->
+			</resource>
+		</resources>
+	</build>
+
+	<repositories>
+		<repository>
+			<id>biopax.releases</id>
+			<name>BioPAX Snapshots Repository at Sourceforge</name>
+			<url>http://biopax.sourceforge.net/m2repo/releases</url>
+		</repository>
+		<repository>
+			<id>biopax.snapshots</id>
+			<name>BioPAX Snapshots Repository at Sourceforge</name>
+			<url>http://biopax.sourceforge.net/m2repo/snapshots</url>
+			<snapshots><enabled>true</enabled></snapshots>
+		</repository>
+		<repository>
+			<id>pattern.repo</id>
+			<name>BioPAX Pattern Framework Repo</name>
+			<url>http://maven-repo.biopax-pattern.googlecode.com/hg</url>
+			<snapshots><enabled>true</enabled></snapshots>
+		</repository>
+		<repository>
+			<id>pathway-commons</id>
+			<name>Pathway Commons Repository at Google Code</name>
+			<url>http://repo.pathway-commons.googlecode.com/hg/</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+		<repository>
+			<id>ozgun.repo</id>
+			<name>Ozgun Repo</name>
+			<url>http://cbio.mskcc.org/~ozgun/m2repo/</url>
+		</repository>
+	</repositories>
+
+	<dependencies>
+
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.7</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.16</version>
+		</dependency>
+		<!--<dependency>-->
+			<!--<groupId>org.cbio</groupId>-->
+			<!--<artifactId>causality</artifactId>-->
+			<!--<version>1.0.0</version>-->
+		<!--</dependency>-->
+		<dependency>
+			<groupId>org.biopax.paxtools</groupId>
+			<artifactId>paxtools-core</artifactId>
+			<version>[4,]</version>
+		</dependency>
+
+		<!-- JSON-LD -->
+		<dependency>
+			<groupId>com.github.jsonld-java</groupId>
+			<artifactId>jsonld-java</artifactId>
+			<version>0.5.0</version>
+		</dependency>
+	</dependencies>
+
+</project>
