@@ -16,7 +16,6 @@ public class ChemicalRepository
 	Map<String, SmallMoleculeReference> idToSMR;
 	Map<SmallMoleculeReference, Map<State, SmallMolecule>> refToSM;
 	BioPAXFactory factory;
-	long idBase;
 	LocationRepository locRep;
 	Model model;
 
@@ -25,7 +24,6 @@ public class ChemicalRepository
 		idToSMR = new HashMap<>();
 		refToSM = new HashMap<>();
 		factory = BioPAXLevel.L3.getDefaultFactory();
-		idBase = System.currentTimeMillis();
 	}
 
 	public void setLocationRepository(LocationRepository rep)
@@ -36,6 +34,13 @@ public class ChemicalRepository
 	public void setModel(Model model)
 	{
 		this.model = model;
+	}
+
+	public SmallMolecule getChemical(String id, String name, State st)
+	{
+		SmallMoleculeReference smr = getSMR(id, name);
+		SmallMolecule sm = getSM(smr, st);
+		return sm;
 	}
 
 	private SmallMoleculeReference getSMR(String id, String name)
@@ -49,12 +54,12 @@ public class ChemicalRepository
 	private SmallMoleculeReference generateSMR(String id, String name)
 	{
 		SmallMoleculeReference smr = factory.create(
-			SmallMoleculeReference.class, "SmallMoleculeReference/" + idBase++);
+			SmallMoleculeReference.class, "SmallMoleculeReference/" + NextNumber.get());
 		model.add(smr);
 		Xref xref = factory.create(
-			UnificationXref.class, "http://identifiers.org/pubchem.compound/" + id);
+			UnificationXref.class, id.toUpperCase().startsWith("CHEBI") ? "http://identifiers.org/chebi/" + id : "http://identifiers.org/pubchem.compound/" + id);
 		model.add(xref);
-		xref.setDb("PubChem-compound");
+		xref.setDb(id.toUpperCase().startsWith("CHEBI") ? "ChEBI" : "PubChem-compound");
 		xref.setId(id);
 		smr.addXref(xref);
 
@@ -76,13 +81,11 @@ public class ChemicalRepository
 
 	private SmallMolecule generateSM(SmallMoleculeReference smr, State st)
 	{
-		SmallMolecule sm = factory.create(SmallMolecule.class, "SmallMolecule/" + idBase++);
+		SmallMolecule sm = factory.create(SmallMolecule.class, "SmallMolecule/" + NextNumber.get());
 
-		if (st.compartment != null)
+		if (st.compartmentID != null)
 		{
-			CellularLocationVocabulary voc = factory.create(
-				CellularLocationVocabulary.class, "CellularLocationVocabulary/" + idBase++);
-			voc.addTerm(st.compartment);
+			CellularLocationVocabulary voc = locRep.getVoc(st.compartmentID, st.compartmentText);
 			sm.setCellularLocation(voc);
 		}
 

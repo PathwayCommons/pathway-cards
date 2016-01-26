@@ -5,14 +5,16 @@ import org.biopax.paxtools.model.BioPAXLevel;
 import org.biopax.paxtools.model.Model;
 import org.biopax.paxtools.model.level3.*;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Created by BaburO on 1/18/2016.
  */
-public class ProteinRepository
+public class FamilyRepository
 {
+	ProteinRepository protRep;
 	Map<String, ProteinReference> idToPR;
 	Map<ProteinReference, Map<State, Protein>> refToProt;
 	BioPAXFactory factory;
@@ -20,8 +22,9 @@ public class ProteinRepository
 	SeqModRepository modRep;
 	Model model;
 
-	public ProteinRepository()
+	public FamilyRepository(ProteinRepository protRep)
 	{
+		this.protRep = protRep;
 		idToPR = new HashMap<>();
 		refToProt = new HashMap<>();
 		factory = BioPAXLevel.L3.getDefaultFactory();
@@ -42,44 +45,40 @@ public class ProteinRepository
 		this.model = model;
 	}
 
-	public Protein getProtein(String uniprot, String name, State st)
+	public Protein getFamily(String interpro, String name, State st) throws IOException
 	{
-		ProteinReference pr = getPR(uniprot);
+		ProteinReference pr = getFamRef(interpro);
 		Protein p = getProtein(pr, name, st);
 		return p;
 	}
 
-	public ProteinReference getPR(String uniprot)
+	private ProteinReference getFamRef(String interpro) throws IOException
 	{
-		if (idToPR.containsKey(uniprot)) return idToPR.get(uniprot);
-		ProteinReference pr = generatePR(uniprot);
-		idToPR.put(uniprot, pr);
+		if (idToPR.containsKey(interpro)) return idToPR.get(interpro);
+		ProteinReference pr = generateFamRef(interpro);
+		idToPR.put(interpro, pr);
 		return pr;
 	}
 
-	private ProteinReference generatePR(String uniprot)
+	private ProteinReference generateFamRef(String interpro) throws IOException
 	{
 		ProteinReference pr = factory.create(ProteinReference.class, "ProteinReference/" + NextNumber.get());
 		model.add(pr);
 
 		Xref xref = factory.create(
-			UnificationXref.class, "http://identifiers.org/uniprot/" + uniprot);
-		xref.setDb("UniProt Knowledgebase");
-		xref.setId(uniprot);
+			UnificationXref.class, "http://identifiers.org/interpro/" + interpro);
+		xref.setDb("InterPro");
+		xref.setId(interpro);
 		pr.addXref(xref);
 		model.add(xref);
 
-		String sym = HGNC.getSymbol(uniprot);
-
-		if (sym != null)
+		for (String up : Interpro.getMembers(interpro))
 		{
-			xref = factory.create(RelationshipXref.class,
-				"http://identifiers.org/hgnc.symbol/" + sym);
-
-			xref.setDb("HGNC Symbol");
-			xref.setId(sym);
-			pr.addXref(xref);
-			model.add(xref);
+			if (HGNC.getSymbol(up) != null)
+			{
+				ProteinReference memPr = protRep.getPR(up);
+				pr.addMemberEntityReference(memPr);
+			}
 		}
 
 		return pr;

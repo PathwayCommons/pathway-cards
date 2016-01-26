@@ -9,7 +9,8 @@ import java.util.Set;
 public class State
 {
 	Set<String> modifications;
-	String compartment;
+	String compartmentID;
+	String compartmentText;
 
 	public State()
 	{
@@ -23,9 +24,9 @@ public class State
 		{
 			State st = (State) obj;
 
-			if (this.compartment == null && st.compartment != null) return false;
-			if (st.compartment == null && this.compartment != null) return false;
-			if (this.compartment != null && !this.compartment.equals(st.compartment)) return false;
+			if (this.compartmentID == null && st.compartmentID != null) return false;
+			if (st.compartmentID == null && this.compartmentID != null) return false;
+			if (this.compartmentID != null && !this.compartmentID.equals(st.compartmentID)) return false;
 
 			if (this.modifications.size() == st.modifications.size() &&
 				this.modifications.containsAll(st.modifications)) return true;
@@ -41,7 +42,7 @@ public class State
 		{
 			h += m.hashCode();
 		}
-		if (compartment != null) h += compartment.hashCode();
+		if (compartmentID != null) h += compartmentID.hashCode();
 
 		return h;
 	}

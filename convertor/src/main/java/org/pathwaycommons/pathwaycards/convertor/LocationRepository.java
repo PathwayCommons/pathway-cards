@@ -4,6 +4,7 @@ import org.biopax.paxtools.model.BioPAXFactory;
 import org.biopax.paxtools.model.BioPAXLevel;
 import org.biopax.paxtools.model.Model;
 import org.biopax.paxtools.model.level3.CellularLocationVocabulary;
+import org.biopax.paxtools.model.level3.UnificationXref;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,24 +14,35 @@ import java.util.Map;
  */
 public class LocationRepository
 {
-	Map<String, CellularLocationVocabulary> locToVoc;
+	Map<String, CellularLocationVocabulary> idToVoc;
 	BioPAXFactory factory = BioPAXLevel.L3.getDefaultFactory();
-	long idBase = System.currentTimeMillis();
 	Model model;
 
 	public LocationRepository()
 	{
-		locToVoc = new HashMap<>();
+		idToVoc = new HashMap<>();
 	}
 
-	public CellularLocationVocabulary getVoc(String loc)
+	public CellularLocationVocabulary getVoc(String loc, String id)
 	{
-		if (locToVoc.containsKey(loc)) return locToVoc.get(loc);
+		if (id == null) id = loc;
+		if (idToVoc.containsKey(id)) return idToVoc.get(id);
 
 		CellularLocationVocabulary voc = factory.create(
-			CellularLocationVocabulary.class, "CellularLocationVocabulary/" + idBase++);
+			CellularLocationVocabulary.class, "CellularLocationVocabulary/" + NextNumber.get());
 		voc.addTerm(loc);
-		locToVoc.put(loc, voc);
+
+		if (id.toLowerCase().startsWith("go:"))
+		{
+			String xid = id.substring(id.indexOf(":") + 1);
+			UnificationXref xref = factory.create(UnificationXref.class, "http://identifiers.org/go/" + id);
+			xref.setDb("Gene Ontology");
+			xref.setId(xid);
+			voc.addXref(xref);
+			model.add(xref);
+		}
+
+		idToVoc.put(id, voc);
 		model.add(voc);
 		return voc;
 	}

@@ -15,7 +15,6 @@ public class SeqModRepository
 {
 	Map<String, SequenceModificationVocabulary> modToVoc;
 	BioPAXFactory factory = BioPAXLevel.L3.getDefaultFactory();
-	long idBase = System.currentTimeMillis();
 	Model model;
 
 	public SeqModRepository()
@@ -28,7 +27,7 @@ public class SeqModRepository
 		if (modToVoc.containsKey(mod)) return modToVoc.get(mod);
 
 		SequenceModificationVocabulary voc = factory.create(
-			SequenceModificationVocabulary.class, "SequenceModificationVocabulary/" + idBase++);
+			SequenceModificationVocabulary.class, "SequenceModificationVocabulary/" + NextNumber.get());
 		voc.addTerm(mod);
 		modToVoc.put(mod, voc);
 		model.add(voc);

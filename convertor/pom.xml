@@ -113,12 +113,17 @@
 			<artifactId>paxtools-core</artifactId>
 			<version>[4,]</version>
 		</dependency>
+		<dependency>
+			<groupId>org.cbio</groupId>
+			<artifactId>causality</artifactId>
+			<version>1.0.1-SNAPSHOT</version>
+		</dependency>
 
 		<!-- JSON-LD -->
 		<dependency>
 			<groupId>com.github.jsonld-java</groupId>
 			<artifactId>jsonld-java</artifactId>
-			<version>0.5.0</version>
+			<version>0.7.0</version>
 		</dependency>
 	</dependencies>
 
