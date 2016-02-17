@@ -26,6 +26,24 @@ public class Converter
 	ConversionRegistry cnvReg;
 	ControlRegistry ctrReg;
 
+	private static final Map<String, String[]> AA_HELPER = new HashMap<>();
+	private static final Map<String, String> AA_MAP = new HashMap<>();
+
+	static
+	{
+		AA_HELPER.put("S", new String[]{"s", "ser", "ser-", "serine", "serine s", "serine residue", "serine residues"});
+		AA_HELPER.put("T", new String[]{"t", "thr", "thr-", "threonine", "threonine t", "threonine residue", "threonine residues"});
+		AA_HELPER.put("Y", new String[]{"y", "tyr", "tyr-", "tyrosine", "tyrosine y", "tyrosine residue", "tyrosine residues"});
+
+		for (String s : AA_HELPER.keySet())
+		{
+			for (String ss : AA_HELPER.get(s))
+			{
+				AA_MAP.put(ss, s);
+			}
+		}
+	}
+
 	public Converter()
 	{
 		chemRep = new ChemicalRepository();
@@ -91,6 +109,10 @@ public class Converter
 		else if (equal(intType, TRANSLOCATES))
 		{
 			pBm = getParticipant(getMap(ext, PARTICIPANT_B), null, toLoc);
+		}
+		else
+		{
+			System.err.println("Unhandled interaction type: " + intType);
 		}
 
 		if (equal(intType, REMOVES_MODIFICATION))
@@ -158,9 +180,9 @@ public class Converter
 		String name = getString(map, ENTITY_TEXT);
 
 		List feats = getList(map, FEATURES);
-		State st = feats == null && modifs == null ? UNMODIFIED : feats != null ?
-			getStateFromFeatures(feats) : new State();
+		State st = feats == null && modifs == null && location == null ? UNMODIFIED : new State();
 
+		addFeaturesToState(st, feats);
 		addModificationsToState(st, modifs);
 		addLocationToState(st, location);
 
@@ -188,10 +210,11 @@ public class Converter
 		return map;
 	}
 
-	private State getStateFromFeatures(List list)
+	private void addFeaturesToState(State st, List feats)
 	{
-		State st = new State();
-		for (Object o : list)
+		if (feats == null) return;
+
+		for (Object o : feats)
 		{
 			Map m = (Map) o;
 			String fType = getString(m, FEATURE_TYPE);
@@ -201,10 +224,10 @@ public class Converter
 			String mType = getString(m, MODIFICATION_TYPE);
 			if (mType == null) continue;
 
-			Integer[] pos = getPositions(m);
+			String[] pos = getPositions(m);
 			if (pos != null && pos.length > 0 && pos[0] != null)
 			{
-				for (Integer p : pos)
+				for (String p : pos)
 				{
 					if (p == null) continue;
 					st.modifications.add(mType + "@" + p);
@@ -212,7 +235,6 @@ public class Converter
 			}
 			else st.modifications.add(mType);
 		}
-		return st;
 	}
 
 	private void addLocationToState(State st, Map<String, String> map)
@@ -242,10 +264,10 @@ public class Converter
 	private void addModificationtoState(State st, Map map)
 	{
 		String type = getString(map, MODIFICATION_TYPE);
-		Integer[] positions = getPositions(map);
+		String[] positions = getPositions(map);
 		if (positions != null && positions.length > 0 && positions[0] != null)
 		{
-			for (Integer p : positions)
+			for (String p : positions)
 			{
 				st.modifications.add(type + "@" + p);
 			}
@@ -253,7 +275,7 @@ public class Converter
 		else st.modifications.add(type);
 	}
 
-	private Integer[] getPositions(Map m)
+	private String[] getPositions(Map m)
 	{
 		if (!has(m, POSITION)) return null;
 
@@ -261,26 +283,64 @@ public class Converter
 		{
 			List list = getList(m, POSITION);
 
-			List<Integer> intList = new ArrayList<>();
+			List<String> posList = new ArrayList<>();
+
 			for (Object o : list)
 			{
 				if (o instanceof Integer)
 				{
-					intList.add((Integer) o);
+					posList.add(getPositionString(o));
 				}
 			}
 
-			return intList.toArray(new Integer[intList.size()]);
+			return posList.toArray(new String[posList.size()]);
 		}
 		else
 		{
-			if (!(get(m, POSITION) instanceof Integer))
-			{
-				return null;
-			}
-			Integer pos = getInt(m, POSITION);
-			return new Integer[]{pos};
+			Object o = get(m, POSITION);
+			String str = getPositionString(o);
+			if (str == null) return null;
+			return new String[]{str};
 		}
+	}
+
+	private String getPositionString(Object o)
+	{
+		if (o instanceof Integer)
+		{
+			return o.toString();
+		}
+		else
+		{
+			String s = (String) o;
+
+			int i = getStartIndexOfEndNumber(s);
+			if (i < 0) return null;
+
+			int pos = Integer.parseInt(s.substring(i));
+
+			s = s.substring(0, i).trim().toLowerCase();
+
+			String aa = AA_MAP.get(s);
+
+			return aa == null ? "" + pos : aa + pos;
+		}
+	}
+
+	private int getStartIndexOfEndNumber(String s)
+	{
+		int x = -1;
+		for (int i = s.length() - 1; i >= 0; i--)
+		{
+			if (!Character.isDigit(s.charAt(i)))
+			{
+				x = i + 1;
+				break;
+			}
+		}
+
+		if (x >= s.length()) return -1;
+		else return x;
 	}
 
 	public void writeModel(String filename) throws FileNotFoundException
@@ -293,18 +353,18 @@ public class Converter
 	 * Make sure that directories are not nested. Otherwise duplications will happen.
 	 * @param dirs
 	 */
-	public void covertFolders(String... dirs) throws IOException
+	public void covertFolders(boolean watchProgress, String... dirs) throws IOException
 	{
 		for (String dir : dirs)
 		{
 			File[] files = new File(dir).listFiles();
 
-			Progress p = new Progress(files.length, "Processing directory: " + dir);
+			Progress p = watchProgress ? new Progress(files.length, "Processing directory: " + dir) : null;
 
 			for (File f : files)
 			{
-				p.tick();
-				if (f.isDirectory()) covertFolders(f.getPath());
+				if (watchProgress) p.tick();
+				if (f.isDirectory()) covertFolders(false, f.getPath());
 				else addToModel(f.getPath());
 			}
 		}
@@ -326,11 +386,15 @@ public class Converter
 	public static void main(String[] args) throws IOException
 	{
 		Converter c = new Converter();
-		c.covertFolders("C:\\Users\\babur\\Documents\\DARPA\\BigMech\\leidos_cards",
-			"C:\\Users\\babur\\Documents\\DARPA\\BigMech\\mihai_cards");
+		c.covertFolders(true,
+			"C:\\Users\\babur\\Documents\\DARPA\\BigMech\\leidos_cards"
+//			"C:\\Users\\babur\\Documents\\DARPA\\BigMech\\mihai_cards"
+		);
 		Interpro.write();
-		c.writeModel("C:\\Users\\babur\\Documents\\DARPA\\BigMech\\model.owl");
+		c.writeModel("C:\\Users\\babur\\Documents\\DARPA\\BigMech\\leidos.owl");
+
+		System.out.println("ProteinRepository.mappedUniprot.size() = " + ProteinRepository.mappedUniprot.size());
+		System.out.println("ProteinRepository.unmappedUniprot.size() = " + ProteinRepository.unmappedUniprot.size());
+		System.out.println(new ArrayList<>(ProteinRepository.unmappedUniprot));
 	}
-
-
 }

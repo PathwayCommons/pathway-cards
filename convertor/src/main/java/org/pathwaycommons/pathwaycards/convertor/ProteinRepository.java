@@ -6,7 +6,9 @@ import org.biopax.paxtools.model.Model;
 import org.biopax.paxtools.model.level3.*;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by BaburO on 1/18/2016.
@@ -19,6 +21,9 @@ public class ProteinRepository
 	LocationRepository locRep;
 	SeqModRepository modRep;
 	Model model;
+
+	public static Set<String> mappedUniprot = new HashSet<>();
+	public static Set<String> unmappedUniprot = new HashSet<>();
 
 	public ProteinRepository()
 	{
@@ -71,6 +76,9 @@ public class ProteinRepository
 
 		String sym = HGNC.getSymbol(uniprot);
 
+		if (sym == null) unmappedUniprot.add(uniprot);
+		else mappedUniprot.add(uniprot);
+
 		if (sym != null)
 		{
 			xref = factory.create(RelationshipXref.class,
@@ -105,11 +113,29 @@ public class ProteinRepository
 		for (String mod : st.modifications)
 		{
 			Integer loc = null;
+			String aa = null;
 			if (mod.contains("@"))
 			{
-				loc = Integer.parseInt(mod.substring(mod.indexOf("@") + 1));
+				String s = mod.substring(mod.indexOf("@") + 1);
+				if (s.startsWith("Y") || s.startsWith("S") || s.startsWith("T"))
+				{
+					aa = s.substring(0, 1);
+					s = s.substring(1);
+				}
+				loc = Integer.parseInt(s);
 				mod = mod.substring(0, mod.indexOf("@"));
+				if ((mod.equals("phosphorylated") || mod.equals("phosphorylation")) && aa != null)
+				{
+					switch (aa)
+					{
+						case "S": mod = "O-Phospho-L-serine"; break;
+						case "T": mod = "O-Phospho-L-threonine"; break;
+						case "Y": mod = "O-Phospho-L-tyrosine"; break;
+					}
+				}
 			}
+
+			if (mod.equals("phosphorylated") || mod.equals("phosphorylation")) mod = "phosphorylated residue";
 
 			ModificationFeature mf = factory.create(
 				ModificationFeature.class, "ModificationFeature" + NextNumber.get());

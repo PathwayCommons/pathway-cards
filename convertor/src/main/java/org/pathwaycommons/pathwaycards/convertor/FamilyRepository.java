@@ -104,10 +104,26 @@ public class FamilyRepository
 		for (String mod : st.modifications)
 		{
 			Integer loc = null;
+			String aa = null;
 			if (mod.contains("@"))
 			{
-				loc = Integer.parseInt(mod.substring(mod.indexOf("@") + 1));
+				String s = mod.substring(mod.indexOf("@") + 1);
+				if (s.startsWith("Y") || s.startsWith("S") || s.startsWith("T"))
+				{
+					aa = s.substring(0, 1);
+					s = s.substring(1);
+				}
+				loc = Integer.parseInt(s);
 				mod = mod.substring(0, mod.indexOf("@"));
+				if (mod.equals("phosphorylated") && aa != null)
+				{
+					switch (aa)
+					{
+						case "S": mod = "O-Phospho-L-serine"; break;
+						case "T": mod = "O-Phospho-L-threonine"; break;
+						case "Y": mod = "O-Phospho-L-tyrosine"; break;
+					}
+				}
 			}
 
 			ModificationFeature mf = factory.create(
