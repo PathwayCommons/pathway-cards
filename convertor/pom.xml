@@ -59,34 +59,12 @@
 
 	<repositories>
 		<repository>
-			<id>biopax.releases</id>
-			<name>BioPAX Snapshots Repository at Sourceforge</name>
-			<url>http://biopax.sourceforge.net/m2repo/releases</url>
-		</repository>
-		<repository>
-			<id>biopax.snapshots</id>
-			<name>BioPAX Snapshots Repository at Sourceforge</name>
-			<url>http://biopax.sourceforge.net/m2repo/snapshots</url>
-			<snapshots><enabled>true</enabled></snapshots>
-		</repository>
-		<repository>
-			<id>pattern.repo</id>
-			<name>BioPAX Pattern Framework Repo</name>
-			<url>http://maven-repo.biopax-pattern.googlecode.com/hg</url>
-			<snapshots><enabled>true</enabled></snapshots>
-		</repository>
-		<repository>
-			<id>pathway-commons</id>
-			<name>Pathway Commons Repository at Google Code</name>
-			<url>http://repo.pathway-commons.googlecode.com/hg/</url>
+			<id>ossrh-public</id>
+			<name>OSSRH Maven Repository</name>
+			<url>https://oss.sonatype.org/content/groups/public</url>
 			<snapshots>
 				<enabled>true</enabled>
 			</snapshots>
-		</repository>
-		<repository>
-			<id>ozgun.repo</id>
-			<name>Ozgun Repo</name>
-			<url>http://cbio.mskcc.org/~ozgun/m2repo/</url>
 		</repository>
 	</repositories>
 
@@ -111,7 +89,12 @@
 		<dependency>
 			<groupId>org.biopax.paxtools</groupId>
 			<artifactId>paxtools-core</artifactId>
-			<version>[4,]</version>
+			<version>5.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.biopax.paxtools</groupId>
+			<artifactId>pattern</artifactId>
+			<version>5.0.0-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.cbio</groupId>

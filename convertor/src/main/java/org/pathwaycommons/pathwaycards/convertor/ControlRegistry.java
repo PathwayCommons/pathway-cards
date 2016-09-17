@@ -32,21 +32,23 @@ public class ControlRegistry
 	 * Checks if it is ok to generate a conversion for this interaction.
 	 * @return true if can generate conversion, false if a similar one already registered before
 	 */
-	public Control getControl(Set<PhysicalEntity> controllers, Conversion cnv)
+	public Control getControl(Set<PhysicalEntity> controllers, Interaction inter)
 	{
-		Code code = new Code(controllers, cnv);
+		Code code = new Code(controllers, inter);
 
 		if (registry.containsKey(code)) return registry.get(code);
 		else
 		{
-			Control ctr = factory.create(cnv instanceof BiochemicalReaction ? Catalysis.class : Control.class,
+			Control ctr = factory.create(inter instanceof BiochemicalReaction ? Catalysis.class :
+				inter instanceof TemplateReaction ? TemplateReactionRegulation.class : Control.class,
 				"Conversion/" + NextNumber.get());
+
 			model.add(ctr);
 			for (PhysicalEntity c : controllers)
 			{
 				ctr.addController(c);
 			}
-			ctr.addControlled(cnv);
+			ctr.addControlled(inter);
 			ctr.setControlType(ControlType.ACTIVATION);
 
 			registry.put(code, ctr);
@@ -56,12 +58,12 @@ public class ControlRegistry
 	class Code
 	{
 		Set<PhysicalEntity> controllers;
-		Conversion cnv;
+		Interaction inter;
 
-		public Code(Set<PhysicalEntity> controllers, Conversion cnv)
+		public Code(Set<PhysicalEntity> controllers, Interaction inter)
 		{
 			this.controllers = controllers;
-			this.cnv = cnv;
+			this.inter = inter;
 		}
 
 		public int hashCode()
@@ -71,7 +73,7 @@ public class ControlRegistry
 			{
 				h += c.hashCode();
 			}
-			h += cnv.hashCode();
+			h += inter.hashCode();
 			return h;
 		}
 
@@ -82,7 +84,7 @@ public class ControlRegistry
 			{
 				Code c = (Code) obj;
 				return controllers.size() == c.controllers.size() && controllers.containsAll(c.controllers) &&
-					cnv == c.cnv;
+					inter == c.inter;
 			}
 			else return this == obj;
 		}

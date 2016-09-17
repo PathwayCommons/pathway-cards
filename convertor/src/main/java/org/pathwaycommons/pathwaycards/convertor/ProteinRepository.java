@@ -56,7 +56,24 @@ public class ProteinRepository
 
 	public ProteinReference getPR(String uniprot)
 	{
+		if (uniprot.contains(";"))
+		{
+			for (String uni : uniprot.split(";"))
+			{
+				if (HGNC.getSymbol(uni) != null)
+				{
+					uniprot = uni;
+					break;
+				}
+			}
+		}
+		else if (uniprot.contains("\n"))
+		{
+			uniprot = "Parse-error";
+		}
+
 		if (idToPR.containsKey(uniprot)) return idToPR.get(uniprot);
+
 		ProteinReference pr = generatePR(uniprot);
 		idToPR.put(uniprot, pr);
 		return pr;
@@ -76,8 +93,10 @@ public class ProteinRepository
 
 		String sym = HGNC.getSymbol(uniprot);
 
-		if (sym == null) unmappedUniprot.add(uniprot);
-		else mappedUniprot.add(uniprot);
+		if (sym == null)
+			unmappedUniprot.add(uniprot);
+		else
+			mappedUniprot.add(uniprot);
 
 		if (sym != null)
 		{

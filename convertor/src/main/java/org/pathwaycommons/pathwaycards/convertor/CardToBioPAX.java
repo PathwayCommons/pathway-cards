@@ -7,6 +7,7 @@ import org.biopax.paxtools.model.BioPAXLevel;
 import org.biopax.paxtools.model.Model;
 import org.biopax.paxtools.model.level3.*;
 import org.cbio.causality.util.Progress;
+import org.cbio.causality.util.TermCounter;
 
 import java.io.*;
 import java.util.*;
@@ -16,7 +17,7 @@ import static org.pathwaycommons.pathwaycards.convertor.Constants.*;
 /**
  * Created by babur on 1/19/2016.
  */
-public class Converter
+public class CardToBioPAX
 {
 	ChemicalRepository chemRep;
 	ProteinRepository protRep;
@@ -25,6 +26,9 @@ public class Converter
 	BioPAXFactory factory;
 	ConversionRegistry cnvReg;
 	ControlRegistry ctrReg;
+	TemplateReactionRegistry trReg;
+
+	TermCounter tc = new TermCounter();
 
 	private static final Map<String, String[]> AA_HELPER = new HashMap<>();
 	private static final Map<String, String> AA_MAP = new HashMap<>();
@@ -44,7 +48,7 @@ public class Converter
 		}
 	}
 
-	public Converter()
+	public CardToBioPAX()
 	{
 		chemRep = new ChemicalRepository();
 		protRep = new ProteinRepository();
@@ -67,28 +71,67 @@ public class Converter
 		cnvReg.setModel(model);
 		ctrReg = new ControlRegistry();
 		ctrReg.setModel(model);
+		trReg = new TemplateReactionRegistry();
+		trReg.setModel(model);
 	}
 
 	public void addToModel(Map map) throws IOException
 	{
-		if (map.isEmpty()) return;
+		if (map.isEmpty())
+		{
+			tc.addTerm("Card is empty");
+			return;
+		}
 
 		Map ext = getMap(map, EXTRACTED_INFORMATION);
+		if (ext == null) ext = map;
 
-		if (get(ext, NEGATIVE_INFORMATION) == Boolean.TRUE) return;
+		if (get(ext, NEGATIVE_INFORMATION) == Boolean.TRUE)
+		{
+			tc.addTerm("Negative information");
+			return;
+		}
 
 		String intType = getString(ext, INTERACTION_TYPE);
 
-		if (equal(intType, BINDS)) return;
+		// fix for table reading cards
+		if ((intType == null || intType.isEmpty()) && ext.containsKey("fold"))
+		{
+			List list = (List) ext.get("fold");
+			for (Object o : list)
+			{
+				Map m = (Map) o;
+				Object s = m.get("interaction_type");
+				if (s != null)
+				{
+					intType = s.toString();
+					break;
+				}
+			}
+		}
+
+		if (intType == null || equal(intType, BINDS))
+		{
+			tc.addTerm("Interaction type is " + intType);
+			return;
+		}
 
 		Set<PhysicalEntity> pAs = getParticipants(get(ext, PARTICIPANT_A));
 
-		if (pAs == null || pAs.isEmpty()) return;
+		if (pAs == null || pAs.isEmpty())
+		{
+			tc.addTerm("Participant A is null or empty");
+			return;
+		}
 
 		Map<String, String> fromLoc = getNameIDMap(getString(ext, FROM_LOCATION), getString(ext, FROM_LOCATION_ID));
 		PhysicalEntity pB = getParticipant(getMap(ext, PARTICIPANT_B), null, fromLoc);
 
-		if (pB == null) return;
+		if (pB == null)
+		{
+			tc.addTerm("Participant B is null");
+			return;
+		}
 
 		PhysicalEntity pBm = null;
 
@@ -110,9 +153,13 @@ public class Converter
 		{
 			pBm = getParticipant(getMap(ext, PARTICIPANT_B), null, toLoc);
 		}
+		else if (equal(intType, INCREASES) || equal(intType, DECREASES))
+		{
+			pBm = pB;
+		}
 		else
 		{
-			System.err.println("Unhandled interaction type: " + intType);
+			System.err.println("Unhandled interaction type = " + intType);
 		}
 
 		if (equal(intType, REMOVES_MODIFICATION))
@@ -122,13 +169,57 @@ public class Converter
 			pBm = temp;
 		}
 
-		Class<? extends Conversion> cnvClazz;
-		if (equal(intType, TRANSLOCATES)) cnvClazz = Transport.class;
-		else cnvClazz = BiochemicalReaction.class;
-		Conversion cnv = cnvReg.getConversion(pB, pBm, cnvClazz);
+		Interaction inter;
 
-		Control ctr = ctrReg.getControl(pAs, cnv);
+		if (equal(intType, INCREASES) || equal(intType, DECREASES))
+		{
+			inter = trReg.getTempReac(pBm);
+		}
+		else
+		{
+			Class<? extends Conversion> cnvClazz;
+			if (equal(intType, TRANSLOCATES)) cnvClazz = Transport.class;
+			else cnvClazz = BiochemicalReaction.class;
 
+			inter = cnvReg.getConversion(pB, pBm, cnvClazz);
+		}
+
+		Control ctr = ctrReg.getControl(pAs, inter);
+
+		if (equal(intType, DECREASES)) ctr.setControlType(ControlType.INHIBITION);
+
+		// Fix for REACH cards
+		if (map.containsKey("pmc_id") && !map.get("pmc_id").toString().startsWith("PMC"))
+		{
+			ext.put("pmc_id", "PMC" + map.get("pmc_id").toString());
+		}
+
+		// Add source article ID
+		String source = getString(ext, PUBLICATION_REF);
+		if (source != null)
+		{
+			for (String s : source.split("-|\\.|_"))
+			{
+				if (s.startsWith("PMC"))
+				{
+					if (s.length() > 10) s = s.substring(0, 10);
+					PublicationXref xref = factory.create(PublicationXref.class, "PublicationXref/" + NextNumber.get());
+					xref.setDb("PMC International");
+					xref.setId(s);
+					ctr.addXref(xref);
+					model.add(xref);
+				}
+			}
+		}
+
+		// Cluster score
+		Double score = getDouble(ext, CLUSTER_SCORE);
+		if (score != null)
+		{
+			ctr.addComment("Cluster score: " + score);
+		}
+
+		tc.addTerm("Converted successfully");
 	}
 
 	private Set<PhysicalEntity> getParticipants(Object o) throws IOException
@@ -148,8 +239,12 @@ public class Converter
 		Set<PhysicalEntity> pes = new HashSet<>();
 		for (Object o : list)
 		{
-			PhysicalEntity pe = getParticipant((Map) o, null, null);
-			if (pe != null) pes.add(pe);
+			if (o instanceof Map)
+			{
+				PhysicalEntity pe = getParticipant((Map) o, null, null);
+				if (pe != null) pes.add(pe);
+			}
+			else pes.addAll(getParticipants((List) o));
 		}
 		return pes;
 	}
@@ -157,15 +252,23 @@ public class Converter
 	private PhysicalEntity getParticipant(Map map, Object modifs, Map<String, String> location) throws IOException
 	{
 		String type = getString(map, ENTITY_TYPE);
-		if (type == null || type.equals("unknown")) return null;
 		String id = getString(map, IDENTIFIER);
+
+		// fix for Leidos table reading cards
+		if (type == null && id != null && id.trim().startsWith("uniprot:")) type = "protein";
+
+		if (type == null || type.equals("unknown")) return null;
 		if (id == null) return null;
 
 		String idType = "";
 		if (id.contains(":"))
 		{
-			idType = id.substring(0, id.indexOf(":"));
+			idType = id.substring(0, id.indexOf(":")).trim();
 			id = id.substring(id.indexOf(":") + 1);
+			if (id.startsWith("uniprot"))
+			{
+				System.out.println();
+			}
 		}
 
 		if (!idType.equalsIgnoreCase("uniprot") &&
@@ -185,6 +288,8 @@ public class Converter
 		addFeaturesToState(st, feats);
 		addModificationsToState(st, modifs);
 		addLocationToState(st, location);
+
+		if (id.startsWith("CHEBI:")) type = CHEMICAL[0];
 
 		if (equal(type, PROTEIN))
 		{
@@ -359,42 +464,66 @@ public class Converter
 		{
 			File[] files = new File(dir).listFiles();
 
-			Progress p = watchProgress ? new Progress(files.length, "Processing directory: " + dir) : null;
+			boolean multiFile = files != null &&  files.length > 1;
+
+			Progress p = watchProgress && multiFile ? new Progress(files.length, "Processing directory: " + dir) : null;
 
 			for (File f : files)
 			{
-				if (watchProgress) p.tick();
+				if (watchProgress && multiFile) p.tick();
 				if (f.isDirectory()) covertFolders(false, f.getPath());
-				else addToModel(f.getPath());
+				else if (f.getName().endsWith(".json"))
+				{
+					addToModel(watchProgress && !multiFile, f.getPath());
+				}
+
+//				if (Math.random() < 0.1) break;
 			}
 		}
 	}
 
-	public void addToModel(String file) throws IOException
+
+
+	public void addToModel(boolean watchProgress, String file) throws IOException
 	{
 		Object o = JsonUtils.fromInputStream(new FileInputStream(file));
 		if (o instanceof Map) addToModel((Map) o);
 		else
 		{
+			printClusterScoreDistribution((List) o);
+
+			Progress p = watchProgress ? new Progress(((List) o).size(), "Processing cards") : null;
 			for (Object oo : (List) o)
 			{
 				addToModel((Map) oo);
+				if (watchProgress) p.tick();
 			}
 		}
 	}
 
+	void printClusterScoreDistribution(List list)
+	{
+		TermCounter tc = new TermCounter();
+		for (Object o : list)
+		{
+			Map map = (Map) o;
+			Object x = get(map, CLUSTER_SCORE);
+			if (x != null) tc.addTerm(x.getClass().getName());
+			else tc.addTerm("null");
+		}
+		tc.print();
+	}
+
 	public static void main(String[] args) throws IOException
 	{
-		Converter c = new Converter();
-		c.covertFolders(true,
-			"C:\\Users\\babur\\Documents\\DARPA\\BigMech\\leidos_cards"
-//			"C:\\Users\\babur\\Documents\\DARPA\\BigMech\\mihai_cards"
-		);
+		CardToBioPAX c = new CardToBioPAX();
+		c.covertFolders(true, "/home/babur/Documents/DARPA/BigMech/cards-clustering");
 		Interpro.write();
-		c.writeModel("C:\\Users\\babur\\Documents\\DARPA\\BigMech\\leidos.owl");
+		c.writeModel("/home/babur/Documents/DARPA/BigMech/L.owl");
 
 		System.out.println("ProteinRepository.mappedUniprot.size() = " + ProteinRepository.mappedUniprot.size());
 		System.out.println("ProteinRepository.unmappedUniprot.size() = " + ProteinRepository.unmappedUniprot.size());
 		System.out.println(new ArrayList<>(ProteinRepository.unmappedUniprot));
+		c.tc.print();
 	}
 }

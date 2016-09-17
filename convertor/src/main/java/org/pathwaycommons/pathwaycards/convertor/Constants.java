@@ -17,8 +17,10 @@ public class Constants
 	public static final String[] REMOVES_MODIFICATION = new String[]{"removes_modification", "inhibits modification", "inhibits_modification"};
 	public static final String[] ACTIVATES = new String[]{"increases_activity"};
 	public static final String[] INACTIVATES = new String[]{"decreases_activity"};
-	public static final String[] TRANSLOCATES = new String[]{"translocates"};
+	public static final String[] TRANSLOCATES = new String[]{"translocates", "translocation"};
 	public static final String[] BINDS = new String[]{"binds"};
+	public static final String[] INCREASES = new String[]{"increases"};
+	public static final String[] DECREASES = new String[]{"decreases"};
 
 	public static final String[] PARTICIPANT_A = new String[]{"participant_a"};
 	public static final String[] PARTICIPANT_B = new String[]{"participant_b"};
@@ -38,6 +40,9 @@ public class Constants
 	public static final String[] FROM_LOCATION = new String[]{"from_location_text"};
 	public static final String[] FROM_LOCATION_ID = new String[]{"from_location_id"};
 	public static final String[] NEGATIVE_INFORMATION = new String[]{"negative_information"};
+
+	public static final String[] PUBLICATION_REF = new String[]{"pmc_id", "filename"};
+	public static final String[] CLUSTER_SCORE = new String[]{"clusterscore"};
 
 	public static final Map ACTIVE = new HashMap();
 	public static final Map INACTIVE = new HashMap();
@@ -104,6 +109,20 @@ public class Constants
 		for (String s : arr)
 		{
 			if (map.containsKey(s)) return (Integer) map.get(s);
+		}
+		return null;
+	}
+
+	public static Double getDouble(Map map, String[] arr)
+	{
+		for (String s : arr)
+		{
+			if (map.containsKey(s))
+			{
+				Object o = map.get(s);
+				if (o instanceof Double) return (Double) o;
+				else return new Double((Integer) o);
+			}
 		}
 		return null;
 	}

@@ -4,7 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * A debug class for checking existing types.
+ * A debug class for checking existing types. Not thread-safe at all.
  *
  * Created by babur on 1/21/2016.
  */
@@ -19,5 +19,10 @@ public class Seen
 			System.out.println("item = " + item);
 			memory.add(item);
 		}
+	}
+
+	public static void clear()
+	{
+		memory.clear();
 	}
 }
