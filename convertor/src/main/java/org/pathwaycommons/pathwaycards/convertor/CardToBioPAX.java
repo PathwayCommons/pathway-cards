@@ -27,6 +27,7 @@ public class CardToBioPAX
 	ConversionRegistry cnvReg;
 	ControlRegistry ctrReg;
 	TemplateReactionRegistry trReg;
+	MolecularInteractionRegistry miReg;
 
 	TermCounter tc = new TermCounter();
 
@@ -73,6 +74,8 @@ public class CardToBioPAX
 		ctrReg.setModel(model);
 		trReg = new TemplateReactionRegistry();
 		trReg.setModel(model);
+		miReg = new MolecularInteractionRegistry();
+		miReg.setModel(model);
 	}
 
 	public void addToModel(Map map) throws IOException
@@ -110,7 +113,7 @@ public class CardToBioPAX
 			}
 		}
 
-		if (intType == null || equal(intType, BINDS))
+		if (intType == null)// || equal(intType, BINDS))
 		{
 			tc.addTerm("Interaction type is " + intType);
 			return;
@@ -137,7 +140,7 @@ public class CardToBioPAX
 
 		Map<String, String> toLoc = getNameIDMap(getString(ext, TO_LOCATION), getString(ext, TO_LOCATION_ID));
 
-		if (equal(intType, ADDS_MODIFICATION) || equal(intType, REMOVES_MODIFICATION))
+		if (equal(intType, ADDS_MODIFICATION) || equal(intType, REMOVES_MODIFICATION) || equal(intType, BINDS))
 		{
 			pBm = getParticipant(getMap(ext, PARTICIPANT_B), get(ext, MODIFICATIONS), toLoc);
 		}
@@ -175,6 +178,12 @@ public class CardToBioPAX
 		{
 			inter = trReg.getTempReac(pBm);
 		}
+		else if (equal(intType, BINDS))
+		{
+			Set<PhysicalEntity> set = new HashSet<>(pAs);
+			set.add(pBm);
+			inter = miReg.getMolecularInteraction(set.toArray(new PhysicalEntity[set.size()]));
+		}
 		else
 		{
 			Class<? extends Conversion> cnvClazz;
@@ -184,9 +193,9 @@ public class CardToBioPAX
 			inter = cnvReg.getConversion(pB, pBm, cnvClazz);
 		}
 
-		Control ctr = ctrReg.getControl(pAs, inter);
+		Interaction ctr = equal(intType, BINDS) ? inter : ctrReg.getControl(pAs, inter);
 
-		if (equal(intType, DECREASES)) ctr.setControlType(ControlType.INHIBITION);
+		if (equal(intType, DECREASES)) ((Control) ctr).setControlType(ControlType.INHIBITION);
 
 		// Fix for REACH cards
 		if (map.containsKey("pmc_id") && !map.get("pmc_id").toString().startsWith("PMC"))
@@ -517,9 +526,9 @@ public class CardToBioPAX
 	public static void main(String[] args) throws IOException
 	{
 		CardToBioPAX c = new CardToBioPAX();
-		c.covertFolders(true, "/home/babur/Documents/DARPA/BigMech/cards-clustering");
+		c.covertFolders(true, "/home/babur/Documents/DARPA/BigMech/cards-REACH/indexcards");
 		Interpro.write();
-		c.writeModel("/home/babur/Documents/DARPA/BigMech/L.owl");
+		c.writeModel("/home/babur/Documents/DARPA/BigMech/REACH.owl");
 
 		System.out.println("ProteinRepository.mappedUniprot.size() = " + ProteinRepository.mappedUniprot.size());
 		System.out.println("ProteinRepository.unmappedUniprot.size() = " + ProteinRepository.unmappedUniprot.size());

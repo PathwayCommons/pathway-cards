@@ -29,13 +29,13 @@ public class BioPAXToSIF
 		Kronometre kron = new Kronometre();
 
 		String base = "/home/babur/Documents/DARPA/BigMech/";
-//		SimpleIOHandler io = new SimpleIOHandler();
-//		Model model = io.convertFromOWL(new FileInputStream(base + "L.owl"));
-		String sifFilename = base + "L.sif";
-//		convert(model, sifFilename);
+		SimpleIOHandler io = new SimpleIOHandler();
+		Model model = io.convertFromOWL(new FileInputStream(base + "REACH.owl"));
+		String sifFilename = base + "REACH.sif";
+		convert(model, sifFilename);
 
 //		printScoreDistribution(sifFilename);
-		extractAboveScore(sifFilename, base + "L0.1.sif", 0.1);
+//		extractAboveScore(sifFilename, base + "L0.1.sif", 0.1);
 
 		kron.stop();
 		kron.print();
@@ -43,7 +43,8 @@ public class BioPAXToSIF
 
 	public static void convert(Model model, String outFilename) throws FileNotFoundException
 	{
-		SIFSearcher searcher = new SIFSearcher(new Fetcher(), SIFEnum.CONTROLS_STATE_CHANGE_OF, SIFEnum.CONTROLS_EXPRESSION_OF);
+		SIFSearcher searcher = new SIFSearcher(new Fetcher(), SIFEnum.CONTROLS_STATE_CHANGE_OF,
+			SIFEnum.CONTROLS_EXPRESSION_OF, SIFEnum.IN_COMPLEX_WITH, SIFEnum.INTERACTS_WITH);
 
 		SIFToText stt = new CustomFormat(OutputColumn.Type.PMC.toString(), OutputColumn.Type.COMMENTS.toString());
 
