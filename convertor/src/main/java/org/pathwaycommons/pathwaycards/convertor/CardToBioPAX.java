@@ -221,6 +221,14 @@ public class CardToBioPAX
 			}
 		}
 
+		List<String> evidences = getStrings(map, EVIDENCE);
+		if (evidences != null)
+		{
+			for (String evidence : evidences)
+			{
+				ctr.addComment(evidence);
+			}
+		}
 		// Cluster score
 		Double score = getDouble(ext, CLUSTER_SCORE);
 		if (score != null)
@@ -499,7 +507,7 @@ public class CardToBioPAX
 		if (o instanceof Map) addToModel((Map) o);
 		else
 		{
-			printClusterScoreDistribution((List) o);
+//			printClusterScoreDistribution((List) o);
 
 			Progress p = watchProgress ? new Progress(((List) o).size(), "Processing cards") : null;
 			for (Object oo : (List) o)
@@ -528,7 +536,7 @@ public class CardToBioPAX
 		CardToBioPAX c = new CardToBioPAX();
 		c.covertFolders(true, "/home/babur/Documents/DARPA/BigMech/cards-REACH/indexcards");
 		Interpro.write();
-		c.writeModel("/home/babur/Documents/DARPA/BigMech/REACH.owl");
+		c.writeModel("/home/babur/Documents/DARPA/BigMech/REACH-temp.owl");
 
 		System.out.println("ProteinRepository.mappedUniprot.size() = " + ProteinRepository.mappedUniprot.size());
 		System.out.println("ProteinRepository.unmappedUniprot.size() = " + ProteinRepository.unmappedUniprot.size());

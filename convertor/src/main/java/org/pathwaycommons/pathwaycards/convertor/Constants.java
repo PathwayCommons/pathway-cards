@@ -1,9 +1,6 @@
 package org.pathwaycommons.pathwaycards.convertor;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by babur on 1/20/2016.
@@ -40,6 +37,7 @@ public class Constants
 	public static final String[] FROM_LOCATION = new String[]{"from_location_text"};
 	public static final String[] FROM_LOCATION_ID = new String[]{"from_location_id"};
 	public static final String[] NEGATIVE_INFORMATION = new String[]{"negative_information"};
+	public static final String[] EVIDENCE = new String[]{"evidence"};
 
 	public static final String[] PUBLICATION_REF = new String[]{"pmc_id", "filename"};
 	public static final String[] CLUSTER_SCORE = new String[]{"clusterscore"};
@@ -78,6 +76,23 @@ public class Constants
 		for (String s : arr)
 		{
 			if (map.containsKey(s)) return (String) map.get(s);
+		}
+		return null;
+	}
+
+	public static List<String> getStrings(Map map, String[] arr)
+	{
+		for (String s : arr)
+		{
+			if (map.containsKey(s))
+			{
+				List<String> list = new ArrayList<>();
+				for (Object o : (List) map.get(s))
+				{
+					list.add(o.toString());
+				}
+				return list;
+			}
 		}
 		return null;
 	}
