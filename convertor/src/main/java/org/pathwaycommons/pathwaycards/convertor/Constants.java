@@ -8,12 +8,18 @@ import java.util.*;
 public class Constants
 {
 	public static final String[] EXTRACTED_INFORMATION = new String[]{"extracted_information"};
-	public static final String[] INTERACTION_TYPE = new String[]{"interaction_type"};
+	public static final String[] INTERACTION_TYPE = new String[]{"interaction_type", "predicate", "type"};
+	public static final String[] INTERACTION_SUB_TYPE = new String[]{"sub_type"};
+
+	public static final String[] REGULATION = new String[]{"regulation"};
+	public static final String[] POSITIVE_REGULATION = new String[]{"positive_regulation"};
+	public static final String[] NEGATIVE_REGULATION = new String[]{"negative_regulation"};
+
 
 	public static final String[] ADDS_MODIFICATION = new String[]{"adds_modification", "adds modification"};
 	public static final String[] REMOVES_MODIFICATION = new String[]{"removes_modification", "inhibits modification", "inhibits_modification"};
-	public static final String[] ACTIVATES = new String[]{"increases_activity"};
-	public static final String[] INACTIVATES = new String[]{"decreases_activity"};
+	public static final String[] ACTIVATES = new String[]{"increases_activity", "activation", "positive-activation"};
+	public static final String[] INACTIVATES = new String[]{"decreases_activity", "negative-activation"};
 	public static final String[] TRANSLOCATES = new String[]{"translocates", "translocation"};
 	public static final String[] BINDS = new String[]{"binds"};
 	public static final String[] INCREASES = new String[]{"increases"};
@@ -30,17 +36,19 @@ public class Constants
 	public static final String[] MODIFICATION_TYPE = new String[]{"modification_type"};
 	public static final String[] MODIFICATIONS = new String[]{"modifications"};
 	public static final String[] POSITION = new String[]{"position"};
-	public static final String[] FEATURES = new String[]{"features"};
+	public static final String[] FEATURES = new String[]{"features", "modifications"};
 	public static final String[] FEATURE_TYPE = new String[]{"feature_type"};
-	public static final String[] TO_LOCATION = new String[]{"to_location_text"};
+	public static final String[] TO_LOCATION = new String[]{"to_location_text", "to_location"};
 	public static final String[] TO_LOCATION_ID = new String[]{"to_location_id"};
-	public static final String[] FROM_LOCATION = new String[]{"from_location_text"};
+	public static final String[] FROM_LOCATION = new String[]{"from_location_text", "from_location"};
 	public static final String[] FROM_LOCATION_ID = new String[]{"from_location_id"};
-	public static final String[] NEGATIVE_INFORMATION = new String[]{"negative_information"};
+	public static final String[] NEGATIVE_INFORMATION = new String[]{"negative_information", "negative"};
 	public static final String[] EVIDENCE = new String[]{"evidence"};
 
-	public static final String[] PUBLICATION_REF = new String[]{"pmc_id", "filename"};
+	public static final String[] PUBLICATION_REF = new String[]{"pmc_id", "filename", "docId"};
 	public static final String[] CLUSTER_SCORE = new String[]{"clusterscore"};
+	public static final String[] EVENTS = new String[]{"events"};
+	public static final String[] SIGN = new String[]{"sign"};
 
 	public static final Map ACTIVE = new HashMap();
 	public static final Map INACTIVE = new HashMap();

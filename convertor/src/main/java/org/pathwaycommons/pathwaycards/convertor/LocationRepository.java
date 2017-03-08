@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Created by BaburO on 1/18/2016.
+ * A repository for not duplicating CellularLocationVocabulary objects in BioPAX.
  */
 public class LocationRepository
 {

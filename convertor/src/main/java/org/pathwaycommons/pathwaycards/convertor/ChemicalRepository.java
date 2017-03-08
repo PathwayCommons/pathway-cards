@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Created by BaburO on 1/18/2016.
+ * A repository for chemicals.
  */
 public class ChemicalRepository
 {
@@ -39,8 +39,7 @@ public class ChemicalRepository
 	public SmallMolecule getChemical(String id, String name, State st)
 	{
 		SmallMoleculeReference smr = getSMR(id, name);
-		SmallMolecule sm = getSM(smr, st);
-		return sm;
+		return getSM(smr, st);
 	}
 
 	private SmallMoleculeReference getSMR(String id, String name)

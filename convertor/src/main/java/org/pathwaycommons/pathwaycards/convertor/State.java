@@ -17,6 +17,21 @@ public class State
 		modifications = new HashSet<>();
 	}
 
+	public void addModification(String modifText)
+	{
+		modifications.add(modifText);
+	}
+
+	public void setCompartmentID(String compartmentID)
+	{
+		this.compartmentID = compartmentID;
+	}
+
+	public void setCompartmentText(String compartmentText)
+	{
+		this.compartmentText = compartmentText;
+	}
+
 	@Override
 	public boolean equals(Object obj)
 	{
