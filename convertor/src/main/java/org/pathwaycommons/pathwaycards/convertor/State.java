@@ -8,7 +8,7 @@ import java.util.Set;
  */
 public class State
 {
-	Set<String> modifications;
+	Set<Modification> modifications;
 	String compartmentID;
 	String compartmentText;
 
@@ -17,9 +17,9 @@ public class State
 		modifications = new HashSet<>();
 	}
 
-	public void addModification(String modifText)
+	public void addModification(String modifText, String aa, Integer pos)
 	{
-		modifications.add(modifText);
+		modifications.add(new Modification(modifText, aa, pos));
 	}
 
 	public void setCompartmentID(String compartmentID)
@@ -43,8 +43,7 @@ public class State
 			if (st.compartmentID == null && this.compartmentID != null) return false;
 			if (this.compartmentID != null && !this.compartmentID.equals(st.compartmentID)) return false;
 
-			if (this.modifications.size() == st.modifications.size() &&
-				this.modifications.containsAll(st.modifications)) return true;
+			return this.modifications.equals(st.modifications);
 		}
 		return false;
 	}
@@ -53,7 +52,7 @@ public class State
 	public int hashCode()
 	{
 		int h = 0;
-		for (String m : modifications)
+		for (Modification m : modifications)
 		{
 			h += m.hashCode();
 		}

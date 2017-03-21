@@ -47,61 +47,70 @@ public class ProteinRepository
 		this.model = model;
 	}
 
-	public Protein getProtein(String uniprot, String name, State st)
+	public Protein getProtein(String id, IDType idType, String name, State st)
 	{
-		ProteinReference pr = getPR(uniprot);
-		Protein p = getProtein(pr, name, st);
-		return p;
+		if (!idType.isProtein)
+			throw new IllegalArgumentException("Wrong type for protein: " + idType);
+
+		if (name == null) name = HGNC.getSymbolOfUP(id);
+		ProteinReference pr = getPR(id, idType);
+		return getProtein(pr, name, st);
 	}
 
-	public ProteinReference getPR(String uniprot)
+	public ProteinReference getPR(String id, IDType idType)
 	{
-		if (uniprot.contains(";"))
-		{
-			for (String uni : uniprot.split(";"))
-			{
-				if (HGNC.getSymbol(uni) != null)
-				{
-					uniprot = uni;
-					break;
-				}
-			}
-		}
-		else if (uniprot.contains("\n"))
-		{
-			uniprot = "Parse-error";
-		}
+		if (id.contains(";")) throw new RuntimeException("ID contains \";\" : " + id);
+//		{
+//			for (String token : id.split(";"))
+//			{
+//				if (HGNC.getSymbolOfUP(token) != null)
+//				{
+//					id = token;
+//					break;
+//				}
+//			}
+//		}
 
-		if (idToPR.containsKey(uniprot)) return idToPR.get(uniprot);
+		if (idToPR.containsKey(id)) return idToPR.get(id);
 
-		ProteinReference pr = generatePR(uniprot);
-		idToPR.put(uniprot, pr);
+		ProteinReference pr = generatePR(id, idType);
+		idToPR.put(id, pr);
 		return pr;
 	}
 
-	private ProteinReference generatePR(String uniprot)
+	public ProteinReference generatePR(String id, IDType idType)
 	{
+		if (!idType.isProtein && !idType.isFamily)
+		{
+			throw new IllegalArgumentException("Wrong ID type for protein reference: " + idType);
+		}
+
 		ProteinReference pr = factory.create(ProteinReference.class, "ProteinReference/" + NextNumber.get());
 		model.add(pr);
 
-		Xref xref = factory.create(
-			UnificationXref.class, "http://identifiers.org/uniprot/" + uniprot);
-		xref.setDb("UniProt Knowledgebase");
-		xref.setId(uniprot);
-		pr.addXref(xref);
-		model.add(xref);
+		if (idType == IDType.HGNC)
+		{
+			String up = HGNC.getUniProtOfID(id);
+			if (up != null)
+			{
+				id = up;
+				idType = IDType.UniProt;
+			}
+		}
 
-		String sym = HGNC.getSymbol(uniprot);
+		idType.addUnifXref(pr, id, model, factory);
+
+		String sym = HGNC.getSymbolOfUP(id);
+		if (sym == null) sym = HGNC.getSymbolOfID(id);
 
 		if (sym == null)
-			unmappedUniprot.add(uniprot);
+			unmappedUniprot.add(id);
 		else
-			mappedUniprot.add(uniprot);
+			mappedUniprot.add(id);
 
 		if (sym != null)
 		{
-			xref = factory.create(RelationshipXref.class,
-				"http://identifiers.org/hgnc.symbol/" + sym);
+			Xref xref = factory.create(RelationshipXref.class, "http://identifiers.org/hgnc.symbol/" + sym);
 
 			xref.setDb("HGNC Symbol");
 			xref.setId(sym);
@@ -112,73 +121,66 @@ public class ProteinRepository
 		return pr;
 	}
 
-	private Protein getProtein(ProteinReference pr, String name, State st)
+	protected Protein getProtein(ProteinReference pr, String name, State st)
 	{
 		if (refToProt.containsKey(pr) && refToProt.get(pr).containsKey(st))
 			return refToProt.get(pr).get(st);
 
 		Protein p = generateProtein(pr, name, st);
 
-		if (!refToProt.containsKey(pr)) refToProt.put(pr, new HashMap<State, Protein>());
+		if (!refToProt.containsKey(pr)) refToProt.put(pr, new HashMap<>());
 		refToProt.get(pr).put(st, p);
 		return p;
 	}
 
-	private Protein generateProtein(ProteinReference pr, String name, State st)
+	protected Protein generateProtein(ProteinReference pr, String name, State st)
 	{
 		Protein protein = factory.create(Protein.class, "Protein/" + NextNumber.get());
 		model.add(protein);
 		protein.setDisplayName(name);
-		for (String mod : st.modifications)
+		addStateDataToPE(protein, st);
+
+		protein.setEntityReference(pr);
+		return protein;
+	}
+
+	public void addStateDataToPE(PhysicalEntity pe, State st)
+	{
+		for (Modification mod : st.modifications)
 		{
-			Integer loc = null;
-			String aa = null;
-			if (mod.contains("@"))
+			String type = mod.type;
+
+			if ((type.equals("phosphorylated") || type.equals("phosphorylation")) && mod.aminoAcid != null)
 			{
-				String s = mod.substring(mod.indexOf("@") + 1);
-				if (s.startsWith("Y") || s.startsWith("S") || s.startsWith("T"))
+				switch (mod.aminoAcid)
 				{
-					aa = s.substring(0, 1);
-					s = s.substring(1);
-				}
-				loc = Integer.parseInt(s);
-				mod = mod.substring(0, mod.indexOf("@"));
-				if ((mod.equals("phosphorylated") || mod.equals("phosphorylation")) && aa != null)
-				{
-					switch (aa)
-					{
-						case "S": mod = "O-Phospho-L-serine"; break;
-						case "T": mod = "O-Phospho-L-threonine"; break;
-						case "Y": mod = "O-Phospho-L-tyrosine"; break;
-					}
+					case "S": type = "O-Phospho-L-serine"; break;
+					case "T": type = "O-Phospho-L-threonine"; break;
+					case "Y": type = "O-Phospho-L-tyrosine"; break;
+					default: type += " " + mod.aminoAcid;
 				}
 			}
-
-			if (mod.equals("phosphorylated") || mod.equals("phosphorylation")) mod = "phosphorylated residue";
 
 			ModificationFeature mf = factory.create(
 				ModificationFeature.class, "ModificationFeature" + NextNumber.get());
 			model.add(mf);
 
-			SequenceModificationVocabulary voc = modRep.getVoc(mod);
+			SequenceModificationVocabulary voc = modRep.getVoc(type);
 			mf.setModificationType(voc);
-			if (loc != null)
+			if (mod.position != null)
 			{
 				SequenceSite site = factory.create(SequenceSite.class, "SequenceSite/" + NextNumber.get());
-				site.setSequencePosition(loc);
+				site.setSequencePosition(mod.position);
 				mf.setFeatureLocation(site);
 				model.add(site);
 			}
-			protein.addFeature(mf);
+			pe.addFeature(mf);
 		}
 
 		if (st.compartmentID != null)
 		{
 			CellularLocationVocabulary voc = locRep.getVoc(st.compartmentID, st.compartmentText);
-			protein.setCellularLocation(voc);
+			pe.setCellularLocation(voc);
 		}
-
-		protein.setEntityReference(pr);
-		return protein;
 	}
 }

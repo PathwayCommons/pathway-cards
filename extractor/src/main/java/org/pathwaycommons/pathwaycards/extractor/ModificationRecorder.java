@@ -61,7 +61,7 @@ public class ModificationRecorder
 					if (memory.contains(hash)) continue;
 					else memory.add(hash);
 					writer.write("\n" + symbol + "\t" + uniprot + "\t" + term + "\t" + site + "\t" +
-						protein.getRDFId());
+						protein.getUri());
 				}
 			}
 		}

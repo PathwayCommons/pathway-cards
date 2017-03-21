@@ -5,9 +5,7 @@ import org.biopax.paxtools.model.BioPAXLevel;
 import org.biopax.paxtools.model.Model;
 import org.biopax.paxtools.model.level3.*;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by BaburO on 1/18/2016.
@@ -15,18 +13,20 @@ import java.util.Map;
 public class FamilyRepository
 {
 	ProteinRepository protRep;
+	ComplexRepository comRep;
 	Map<String, ProteinReference> idToPR;
-	Map<ProteinReference, Map<State, Protein>> refToProt;
+	Map<String, Map<State, Complex>> idToComplex;
 	BioPAXFactory factory;
 	LocationRepository locRep;
 	SeqModRepository modRep;
 	Model model;
 
-	public FamilyRepository(ProteinRepository protRep)
+	public FamilyRepository(ProteinRepository protRep, ComplexRepository comRep)
 	{
 		this.protRep = protRep;
+		this.comRep = comRep;
 		idToPR = new HashMap<>();
-		refToProt = new HashMap<>();
+		idToComplex = new HashMap<>();
 		factory = BioPAXLevel.L3.getDefaultFactory();
 	}
 
@@ -45,110 +45,135 @@ public class FamilyRepository
 		this.model = model;
 	}
 
-	public Protein getFamily(String interpro, String name, State st) throws IOException
+	public PhysicalEntity getFamily(String famID, IDType idType, String name, State st)
 	{
-		ProteinReference pr = getFamRef(interpro);
-		Protein p = getProtein(pr, name, st);
-		return p;
+		if (!idType.isFamily) throw new IllegalArgumentException("Wrong type for a family: " + idType);
+
+		if (idType == IDType.Bioentities && Bioentities.isComplex(famID))
+		{
+			if (idToComplex.containsKey(famID) && idToComplex.get(famID).containsKey(st))
+			{
+				return idToComplex.get(famID).get(st);
+			}
+
+			Complex complex = getBioentitiesComplex(famID, st);
+
+			if (!idToComplex.containsKey(famID)) idToComplex.put(famID, new HashMap<>());
+			idToComplex.get(famID).put(st, complex);
+			return complex;
+		}
+
+		// else it is a real family
+
+		ProteinReference pr = getFamRef(famID, idType);
+		return protRep.getProtein(pr, name, st);
 	}
 
-	private ProteinReference getFamRef(String interpro) throws IOException
+	private ProteinReference getFamRef(String famID, IDType idType)
 	{
-		if (idToPR.containsKey(interpro)) return idToPR.get(interpro);
-		ProteinReference pr = generateFamRef(interpro);
-		idToPR.put(interpro, pr);
+		if (idToPR.containsKey(famID)) return idToPR.get(famID);
+		ProteinReference pr = generateFamRef(famID, idType);
+		idToPR.put(famID, pr);
 		return pr;
 	}
 
-	private ProteinReference generateFamRef(String interpro) throws IOException
+	private ProteinReference generateFamRef(String famID, IDType idType)
 	{
-		ProteinReference pr = factory.create(ProteinReference.class, "ProteinReference/" + NextNumber.get());
-		model.add(pr);
+		ProteinReference pr = protRep.getPR(famID, idType);
 
-		Xref xref = factory.create(
-			UnificationXref.class, "http://identifiers.org/interpro/" + interpro);
-		xref.setDb("InterPro");
-		xref.setId(interpro);
-		pr.addXref(xref);
-		model.add(xref);
+		// Populate members for Pfam and InterPro
 
-		for (String up : Interpro.getMembers(interpro))
+		Set<String> members = idType == IDType.Pfam ? Pfam.getMembers(famID) :
+			idType == IDType.InterPro ? Interpro.getMembers(famID) :
+			Collections.EMPTY_SET;
+
+		for (String up : members)
 		{
-			if (HGNC.getSymbol(up) != null)
+			if (HGNC.getSymbolOfUP(up) != null)
 			{
-				ProteinReference memPr = protRep.getPR(up);
+				ProteinReference memPr = protRep.getPR(up, IDType.UniProt);
 				pr.addMemberEntityReference(memPr);
 			}
 		}
 
-		return pr;
-	}
+		// Populate members for Bioentities
 
-	private Protein getProtein(ProteinReference pr, String name, State st)
-	{
-		if (refToProt.containsKey(pr) && refToProt.get(pr).containsKey(st))
-			return refToProt.get(pr).get(st);
-
-		Protein p = generateProtein(pr, name, st);
-
-		if (!refToProt.containsKey(pr)) refToProt.put(pr, new HashMap<State, Protein>());
-		refToProt.get(pr).put(st, p);
-		return p;
-	}
-
-	private Protein generateProtein(ProteinReference pr, String name, State st)
-	{
-		Protein protein = factory.create(Protein.class, "Protein/" + NextNumber.get());
-		model.add(protein);
-		protein.setDisplayName(name);
-		for (String mod : st.modifications)
+		if (idType == IDType.Bioentities)
 		{
-			Integer loc = null;
-			String aa = null;
-			if (mod.contains("@"))
+			for (Bioentities.Entry mem : Bioentities.getFamilyMembers(famID))
 			{
-				String s = mod.substring(mod.indexOf("@") + 1);
-				if (s.startsWith("Y") || s.startsWith("S") || s.startsWith("T"))
+				switch (mem.db)
 				{
-					aa = s.substring(0, 1);
-					s = s.substring(1);
-				}
-				loc = Integer.parseInt(s);
-				mod = mod.substring(0, mod.indexOf("@"));
-				if (mod.equals("phosphorylated") && aa != null)
-				{
-					switch (aa)
+					case UniProt:
 					{
-						case "S": mod = "O-Phospho-L-serine"; break;
-						case "T": mod = "O-Phospho-L-threonine"; break;
-						case "Y": mod = "O-Phospho-L-tyrosine"; break;
+						ProteinReference memPr = protRep.getPR(mem.id, IDType.UniProt);
+						pr.addMemberEntityReference(memPr);
+						break;
+					}
+					case HGNC:
+					{
+						String up = HGNC.getUniProtOfSymbol(mem.id);
+						if (up != null)
+						{
+							ProteinReference memPr = protRep.getPR(up, IDType.UniProt);
+							pr.addMemberEntityReference(memPr);
+						}
+						break;
+					}
+					case Bioentities:
+					{
+						if (Bioentities.isComplex(mem.id)) throw new RuntimeException("Violation of assumption. A " +
+							"complex is a member of a family in Bioentities. Fam: " + famID + ", Mem: " + mem.id);
+
+						if (!Bioentities.isFamily(mem.id)) throw new RuntimeException("Bioentities family member is " +
+							"not recognized. Fam: " + famID + ", Mem: " + mem.id);
+
+						ProteinReference memPr = getFamRef(mem.id, IDType.Bioentities);
+						pr.addMemberEntityReference(memPr);
 					}
 				}
 			}
-
-			ModificationFeature mf = factory.create(
-				ModificationFeature.class, "ModificationFeature" + NextNumber.get());
-			model.add(mf);
-
-			SequenceModificationVocabulary voc = modRep.getVoc(mod);
-			mf.setModificationType(voc);
-			if (loc != null)
-			{
-				SequenceSite site = factory.create(SequenceSite.class, "SequenceSite/" + NextNumber.get());
-				site.setSequencePosition(loc);
-				mf.setFeatureLocation(site);
-				model.add(site);
-			}
-			protein.addFeature(mf);
 		}
 
-		if (st.compartmentID != null)
+		return pr;
+	}
+
+	private Complex getBioentitiesComplex(String id, State st)
+	{
+
+		Set<Bioentities.Entry> members = Bioentities.getComplexMembers(id);
+
+		Set<PhysicalEntity> pes = new HashSet<>();
+
+		for (Bioentities.Entry member : members)
 		{
-			CellularLocationVocabulary voc = locRep.getVoc(st.compartmentID, st.compartmentText);
-			protein.setCellularLocation(voc);
+			switch (member.db)
+			{
+				case UniProt:
+				{
+					pes.add(protRep.getProtein(member.id, IDType.UniProt, null, Constants.UNMODIFIED));
+					break;
+				}
+				case HGNC:
+				{
+					String upID = HGNC.getUniProtOfSymbol(member.id);
+					pes.add(protRep.getProtein(upID, IDType.UniProt, member.id, Constants.UNMODIFIED));
+					break;
+				}
+				case Bioentities:
+				{
+					if (Bioentities.isComplex(member.id)) pes.add(getBioentitiesComplex(member.id, Constants.UNMODIFIED));
+					else if (Bioentities.isFamily(member.id)) pes.add(getFamily(member.id, IDType.Bioentities, member.id, Constants.UNMODIFIED));
+					break;
+				}
+			}
 		}
 
-		protein.setEntityReference(pr);
-		return protein;
+		Complex complex = comRep.getComplex(pes, id);
+		protRep.addStateDataToPE(complex, st);
+
+		IDType.Bioentities.addUnifXref(complex, id, model, factory);
+
+		return complex;
 	}
 }

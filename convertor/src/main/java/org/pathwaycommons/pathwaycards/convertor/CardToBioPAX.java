@@ -53,7 +53,7 @@ public class CardToBioPAX
 	{
 		chemRep = new ChemicalRepository();
 		protRep = new ProteinRepository();
-		famRep = new FamilyRepository(protRep);
+		famRep = new FamilyRepository(protRep, null);
 		LocationRepository locRep = new LocationRepository();
 		SeqModRepository modRep = new SeqModRepository();
 		chemRep.setLocationRepository(locRep);
@@ -190,12 +190,10 @@ public class CardToBioPAX
 			if (equal(intType, TRANSLOCATES)) cnvClazz = Transport.class;
 			else cnvClazz = BiochemicalReaction.class;
 
-			inter = cnvReg.getConversion(pB, pBm, cnvClazz);
+			inter = cnvReg.getConversion(Collections.singleton(pB), Collections.singleton(pBm), cnvClazz);
 		}
 
-		Interaction ctr = equal(intType, BINDS) ? inter : ctrReg.getControl(pAs, inter);
-
-		if (equal(intType, DECREASES)) ((Control) ctr).setControlType(ControlType.INHIBITION);
+		Interaction ctr = equal(intType, BINDS) ? inter : ctrReg.getControl(pAs, inter, !equal(intType, DECREASES));
 
 		// Fix for REACH cards
 		if (map.containsKey("pmc_id") && !map.get("pmc_id").toString().startsWith("PMC"))
@@ -277,10 +275,10 @@ public class CardToBioPAX
 		if (type == null || type.equals("unknown")) return null;
 		if (id == null) return null;
 
-		String idType = "";
+		IDType idType = null;
 		if (id.contains(":"))
 		{
-			idType = id.substring(0, id.indexOf(":")).trim();
+			idType = IDType.get(id.substring(0, id.indexOf(":")).trim());
 			id = id.substring(id.indexOf(":") + 1);
 			if (id.startsWith("uniprot"))
 			{
@@ -288,14 +286,7 @@ public class CardToBioPAX
 			}
 		}
 
-		if (!idType.equalsIgnoreCase("uniprot") &&
-			!idType.equalsIgnoreCase("pubchem") &&
-			!idType.equalsIgnoreCase("chebi") &&
-			!idType.equalsIgnoreCase("interpro")
-			)
-		{
-			return null;
-		}
+		if (idType == null) return null;
 
 		String name = getString(map, ENTITY_TEXT);
 
@@ -310,15 +301,15 @@ public class CardToBioPAX
 
 		if (equal(type, PROTEIN))
 		{
-			return protRep.getProtein(id, name, st);
+			return protRep.getProtein(id, idType, name, st);
 		}
 		else if (equal(type, CHEMICAL))
 		{
-			return chemRep.getChemical(id, name, st);
+			return chemRep.getChemical(id, idType, name, st);
 		}
 		else if (equal(type, FAMILY))
 		{
-			return famRep.getFamily(id, name, st);
+			return famRep.getFamily(id, idType, name, st);
 		}
 		return null;
 	}
@@ -352,10 +343,10 @@ public class CardToBioPAX
 				for (String p : pos)
 				{
 					if (p == null) continue;
-					st.modifications.add(mType + "@" + p);
+					st.addModification(mType, null, Integer.valueOf(p));
 				}
 			}
-			else st.modifications.add(mType);
+			else st.addModification(mType, null, null);
 		}
 	}
 
@@ -391,10 +382,10 @@ public class CardToBioPAX
 		{
 			for (String p : positions)
 			{
-				st.modifications.add(type + "@" + p);
+				st.addModification(type, null, Integer.valueOf(p));
 			}
 		}
-		else st.modifications.add(type);
+		else st.addModification(type, null, null);
 	}
 
 	private String[] getPositions(Map m)

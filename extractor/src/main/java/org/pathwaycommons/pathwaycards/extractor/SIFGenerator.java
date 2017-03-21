@@ -35,7 +35,7 @@ public class SIFGenerator
 
 		searcher.setBlacklist(blacklist);
 
-		searcher.searchSIF(model, new FileOutputStream(outFile), true);
+		searcher.searchSIF(model, new FileOutputStream(outFile));
 
 		return true;
 	}

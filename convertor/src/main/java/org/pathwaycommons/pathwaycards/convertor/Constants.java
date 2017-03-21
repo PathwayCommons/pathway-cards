@@ -8,7 +8,9 @@ import java.util.*;
 public class Constants
 {
 	public static final String[] EXTRACTED_INFORMATION = new String[]{"extracted_information"};
-	public static final String[] INTERACTION_TYPE = new String[]{"interaction_type", "predicate", "type"};
+	public static final String[] PREDICATE = new String[]{"predicate"};
+	public static final String[] PREDICATE_ID = new String[]{"id"};
+	public static final String[] INTERACTION_TYPE = new String[]{"interaction_type", "type"};
 	public static final String[] INTERACTION_SUB_TYPE = new String[]{"sub_type"};
 
 	public static final String[] REGULATION = new String[]{"regulation"};
@@ -43,7 +45,7 @@ public class Constants
 	public static final String[] FROM_LOCATION = new String[]{"from_location_text", "from_location"};
 	public static final String[] FROM_LOCATION_ID = new String[]{"from_location_id"};
 	public static final String[] NEGATIVE_INFORMATION = new String[]{"negative_information", "negative"};
-	public static final String[] EVIDENCE = new String[]{"evidence"};
+	public static final String[] EVIDENCE = new String[]{"evidence", "sentence"};
 
 	public static final String[] PUBLICATION_REF = new String[]{"pmc_id", "filename", "docId"};
 	public static final String[] CLUSTER_SCORE = new String[]{"clusterscore"};

@@ -201,7 +201,7 @@ public class FieldReaderUtil
 			}
 			if(ele!=null)
 			{
-				String id = ele.getRDFId();
+				String id = ele.getUri();
 				if (id.contains("uniprot"))
 				{
 					return "Uniprot:" + id.substring(id.lastIndexOf("/") + 1);

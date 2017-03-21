@@ -30,21 +30,22 @@ public class ChemicalRepositoryTest
 	@Test
 	public void testGetChemical() throws Exception
 	{
+		IDType idType = IDType.PubChem;
 		String id = "";
 		String name = "";
-		State state1 = Mocker.getMockState(null);
+		State state1 = Mocker.getMockState(null, null, null);
 
-		SmallMolecule sm1 = chemRep.getChemical(id, name, state1);
+		SmallMolecule sm1 = chemRep.getChemical(id, idType, name, state1);
 
-		SmallMolecule sm2 = chemRep.getChemical(id, name, state1);
+		SmallMolecule sm2 = chemRep.getChemical(id, idType, name, state1);
 
 		Assert.assertEquals(true, sm1 == sm2);
 
-		State state2 = Mocker.getMockState(null);
+		State state2 = Mocker.getMockState(null, null, null);
 		state2.setCompartmentText("cytoplasm");
 		state2.setCompartmentID("GO:0203045");
 
-		SmallMolecule sm3 = chemRep.getChemical(id, name, state2);
+		SmallMolecule sm3 = chemRep.getChemical(id, idType, name, state2);
 
 		Assert.assertEquals(false, sm1.equals(sm3));
 		Assert.assertEquals(true, sm1.getEntityReference() == sm3.getEntityReference());

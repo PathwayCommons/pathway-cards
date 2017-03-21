@@ -32,7 +32,7 @@ public class ConversionRegistry
 	 * Checks if it is ok to generate a conversion for this interaction.
 	 * @return true if can generate conversion, false if a similar one already registered before
 	 */
-	public Conversion getConversion(PhysicalEntity in, PhysicalEntity out, Class<? extends Conversion> clazz)
+	public Conversion getConversion(Set<PhysicalEntity> in, Set<PhysicalEntity> out, Class<? extends Conversion> clazz)
 	{
 		Code code = new Code(in, out);
 
@@ -41,8 +41,8 @@ public class ConversionRegistry
 		{
 			Conversion cnv = factory.create(clazz, "Conversion/" + NextNumber.get());
 			model.add(cnv);
-			cnv.addLeft(in);
-			cnv.addRight(out);
+			in.forEach(cnv::addLeft);
+			out.forEach(cnv::addRight);
 			cnv.setConversionDirection(ConversionDirectionType.LEFT_TO_RIGHT);
 
 			registry.put(code, cnv);
@@ -51,10 +51,10 @@ public class ConversionRegistry
 	}
 	class Code
 	{
-		PhysicalEntity in;
-		PhysicalEntity out;
+		Set<PhysicalEntity> in;
+		Set<PhysicalEntity> out;
 
-		public Code(PhysicalEntity in, PhysicalEntity out)
+		public Code(Set<PhysicalEntity> in, Set<PhysicalEntity> out)
 		{
 			this.in = in;
 			this.out = out;
@@ -62,7 +62,16 @@ public class ConversionRegistry
 
 		public int hashCode()
 		{
-			return in.hashCode() + out.hashCode();
+			int h = 0;
+			for (PhysicalEntity pe : in)
+			{
+				h += pe.hashCode();
+			}
+			for (PhysicalEntity pe : out)
+			{
+				h += pe.hashCode();
+			}
+			return h;
 		}
 
 		@Override
@@ -71,7 +80,7 @@ public class ConversionRegistry
 			if (obj instanceof Code)
 			{
 				Code c = (Code) obj;
-				return in == c.in && out == c.out;
+				return in.equals(c.in) && out.equals(c.out);
 			}
 			else return this == obj;
 		}

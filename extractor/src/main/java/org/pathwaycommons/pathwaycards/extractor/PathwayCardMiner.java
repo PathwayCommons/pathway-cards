@@ -238,7 +238,7 @@ public class PathwayCardMiner
 			map.put("model_elements", eles);
 			for (BioPAXElement mediator : mediators)
 			{
-				eles.add(mediator.getRDFId());
+				eles.add(mediator.getUri());
 			}
 			Map extractedInfo = new LinkedHashMap();
 			map.put("extracted_information", extractedInfo);

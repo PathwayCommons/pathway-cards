@@ -12,7 +12,7 @@ import org.cbio.causality.util.TermCounter;
 import java.io.*;
 import java.util.*;
 
-import static org.pathwaycommons.pathwaycards.convertor.Constants.*;
+import static org.pathwaycommons.pathwaycards.convertor.FrexTag.*;
 
 /**
  * Converts the extended FRIES format (Frext) into BioPAX.
@@ -33,6 +33,11 @@ public class FrextToBioPAX
 	 * Repository for protein families.
 	 */
 	FamilyRepository famRep;
+
+	/**
+	 * Repository for Bio-processes.
+	 */
+	BioprocessRepository biopRep;
 
 	/**
 	 * The one and only BioPAX model.
@@ -62,7 +67,12 @@ public class FrextToBioPAX
 	/**
 	 * Repository for molecular interactions.
 	 */
-	MolecularInteractionRegistry miReg;
+	ComplexRepository complexRep;
+
+	/**
+	 * Registry for processed events.
+	 */
+	EventRegistry eventReg;
 
 	/**
 	 * A counter for keeping the statistics of the cases that is encountered during the conversion.
@@ -100,7 +110,10 @@ public class FrextToBioPAX
 	{
 		chemRep = new ChemicalRepository();
 		protRep = new ProteinRepository();
-		famRep = new FamilyRepository(protRep);
+		complexRep = new ComplexRepository();
+		famRep = new FamilyRepository(protRep, complexRep);
+		biopRep = new BioprocessRepository();
+		biopRep.setProtRep(protRep);
 		LocationRepository locRep = new LocationRepository();
 		SeqModRepository modRep = new SeqModRepository();
 		chemRep.setLocationRepository(locRep);
@@ -113,6 +126,8 @@ public class FrextToBioPAX
 		protRep.setModel(model);
 		chemRep.setModel(model);
 		famRep.setModel(model);
+		complexRep.setModel(model);
+		biopRep.setModel(model);
 		modRep.setModel(model);
 		locRep.setModel(model);
 		cnvReg = new ConversionRegistry();
@@ -121,8 +136,7 @@ public class FrextToBioPAX
 		ctrReg.setModel(model);
 		trReg = new TemplateReactionRegistry();
 		trReg.setModel(model);
-		miReg = new MolecularInteractionRegistry();
-		miReg.setModel(model);
+		eventReg = new EventRegistry();
 	}
 
 	/**
@@ -137,31 +151,57 @@ public class FrextToBioPAX
 			return;
 		}
 
-		// The doc ID contains the PMC ID of the the current paper
-		String docID = getString(map, PUBLICATION_REF);
+		// Prepare the xref pointing to the resource paper
+		String pmcID = PUBLICATION_REF.getString(map);
+		PublicationXref xref = factory.create(PublicationXref.class, "PublicationXref/" + NextNumber.get());
+		xref.setDb("PMC International");
+		xref.setId(pmcID);
+		model.add(xref);
 
 		// Iterate events and add to the model
-		for (Object o : getList(map, EVENTS))
+		for (Object o : EVENTS.getList(map))
 		{
 			Map event = (Map) o;
 
-			Map interaction = getMap(event, INTERACTION_TYPE);
-
-			// If the event is a "not happened" event, just skip it
-			if (equal(getString(interaction, SIGN), NEGATIVE_INFORMATION))
+//			//fix for translocations
+			if (PARTICIPANT_A.has(event) && !PARTICIPANT_B.has(event))
 			{
-				tc.addTerm("Not happened");
-				return;
+				event.put(PARTICIPANT_B.getTag(), PARTICIPANT_A.get(event));
+				PARTICIPANT_A.remove(event);
+
+				System.out.println("Moved participant A to B. " + pmcID);
 			}
 
-			String intType = getString(interaction, INTERACTION_TYPE);
-			String intSubType = getString(interaction, INTERACTION_SUB_TYPE);
+			processEvent(event, xref);
+		}
+	}
+
+	/**
+	 * Recursive method that creates each event.
+	 */
+	private void processEvent(Map event, final Xref xref)
+	{
+		Map predicate = PREDICATE.getMap(event);
+		String predID = PREDICATE_ID.getString(predicate);
+
+		// Stop if this event is already processed
+		if (eventReg.isRegistered(predID)) return;
+
+		// If the event is a "not happened" event, just skip it
+		if (SIGN.equal(predicate, NEGATIVE))
+		{
+			tc.addTerm("Not happened");
+			return;
+		}
+
+		String predType = PREDICATE_TYPE.getString(predicate);
+		String predSubType = PREDICATE_SUB_TYPE.getString(predicate);
 
 //--- DEBUG
 
-//			lookAtKeys(event, "");
+//		lookAtKeys(event, "");
 
-			tc.addTerm(intType + " ---- " + intSubType);
+			tc.addTerm(predType + " ---- " + predSubType);
 
 //			if (event.containsKey("participant_a"))
 //			{
@@ -169,168 +209,301 @@ public class FrextToBioPAX
 //				tc.addTerm(term);
 //			}
 
-			if (true) return;
+//		if (event.containsKey("sites"))
+//		{
+//			((List) event.get("sites")).stream().map(o -> (Map) o).forEach(m -> tc.addTerm(((Map) m).get("entity_type").toString()));
+//		}
+
+//		if (true) return;
 //--- DEBUG
 
-			// Skip if interaction type is not set
-			if (intType == null)
-			{
-				tc.addTerm("Interaction type is " + intType);
-				return;
-			}
-
-			// Read participant As
-			Set<PhysicalEntity> pAs = getParticipants(get(event, PARTICIPANT_A));
-
-			// Skip if no participant A found
-			if (pAs == null || pAs.isEmpty())
-			{
-				tc.addTerm("Participant A is null or empty");
-				return;
-			}
-
-			// Read the "from" location of participant B
-			Map<String, String> fromLoc = readLocation(getMap(event, FROM_LOCATION));
-
-			// Generate participant B
-			PhysicalEntity pB = getParticipant(getMap(event, PARTICIPANT_B), null, fromLoc);
-
-			// Skip if no participant B is found
-			if (pB == null)
-			{
-				tc.addTerm("Participant B is null");
-				return;
-			}
-
-			PhysicalEntity pBm = null;
-
-			// Read the "to" location of participant B
-			Map<String, String> toLoc = readLocation(getMap(event, TO_LOCATION));
-
-			List modifs = null;
-			if (equal(intType, REGULATION))
-			{
-				modifs = getModifications(event, intSubType);
-			}
-
-			if (equal(intType, REGULATION) || equal(intType, BINDS))
-			{
-//				List modifs = getList(event, MODIFICATIONS);
-				pBm = getParticipant(getMap(event, PARTICIPANT_B), modifs, toLoc);
-			}
-			else if (equal(intType, ACTIVATES))
-			{
-				if (equal(intSubType, ACTIVATES))
-				{
-					pBm = getParticipant(getMap(event, PARTICIPANT_B), ACTIVE, toLoc);
-				}
-				else if (equal(intSubType, INACTIVATES))
-				{
-					pBm = getParticipant(getMap(event, PARTICIPANT_B), INACTIVE, toLoc);
-				}
-			}
-			else if (equal(intType, TRANSLOCATES))
-			{
-				pBm = getParticipant(getMap(event, PARTICIPANT_B), null, toLoc);
-			}
-			else if (equal(intType, INCREASES) || equal(intType, DECREASES))
-			{
-				pBm = pB;
-			}
-			else
-			{
-				System.err.println("Unhandled interaction type = " + intType);
-			}
-
-			if (equal(intType, REMOVES_MODIFICATION))
-			{
-				PhysicalEntity temp = pB;
-				pB = pBm;
-				pBm = temp;
-			}
-
-			// Create the event
-
-			Interaction inter;
-
-			// If it is a binding event, create a MolecularInteraction with all participants
-			if (equal(intType, BINDS))
-			{
-				Set<PhysicalEntity> set = new HashSet<>(pAs);
-				set.add(pBm);
-				inter = miReg.getMolecularInteraction(set.toArray(new PhysicalEntity[set.size()]));
-			}
-			// Otherwise it is a child of Conversion
-			else
-			{
-				Class<? extends Conversion> cnvClazz;
-
-				// If it is a tranlocation, create a Transport event
-				if (equal(intType, TRANSLOCATES))
-				{
-					cnvClazz = Transport.class;
-				}
-				// Otherwise, it is a BiochemicalReaction
-				else
-				{
-					cnvClazz = BiochemicalReaction.class;
-				}
-
-				// create the Conversion
-				inter = cnvReg.getConversion(pB, pBm, cnvClazz);
-			}
-
-			Interaction ctr = equal(intType, BINDS) ? inter : ctrReg.getControl(pAs, inter);
-
-			if (equal(intType, DECREASES)) ((Control) ctr).setControlType(ControlType.INHIBITION);
-
-			// Fix for REACH cards
-			if (map.containsKey("pmc_id") && !map.get("pmc_id").toString().startsWith("PMC"))
-			{
-				event.put("pmc_id", "PMC" + map.get("pmc_id").toString());
-			}
-
-			// Add source article ID
-			String source = getString(event, PUBLICATION_REF);
-			if (source != null)
-			{
-				for (String s : source.split("-|\\.|_"))
-				{
-					if (s.startsWith("PMC"))
-					{
-						if (s.length() > 10) s = s.substring(0, 10);
-						PublicationXref xref = factory.create(PublicationXref.class, "PublicationXref/" + NextNumber.get());
-						xref.setDb("PMC International");
-						xref.setId(s);
-						ctr.addXref(xref);
-						model.add(xref);
-					}
-				}
-			}
-
-			List<String> evidences = getStrings(map, EVIDENCE);
-			if (evidences != null)
-			{
-				for (String evidence : evidences)
-				{
-					ctr.addComment(evidence);
-				}
-			}
-			// Cluster score
-			Double score = getDouble(event, CLUSTER_SCORE);
-			if (score != null)
-			{
-				ctr.addComment("Cluster score: " + score);
-			}
-
-			tc.addTerm("Converted successfully");
+		// Skip if interaction type is not set
+		if (predType == null)
+		{
+			tc.addTerm("Interaction type is " + predType);
+			return;
 		}
 
+		// Process participant As
+
+		Set<PhysicalEntity> pAs = new HashSet<>();
+
+		Object partAObj = PARTICIPANT_A.get(event);
+		if (partAObj != null)
+		{
+			if (partAObj instanceof List)
+			{
+				for (Object o : (List) partAObj)
+				{
+					processPartA((Map) o, xref, pAs);
+				}
+			}
+			else processPartA((Map) partAObj, xref, pAs);
+		}
+
+		// Read the "from" location of participant B
+		Map fromLoc = FROM_LOCATION.getMapOrFirstInList(event);
+
+		List<Interaction> interactions = new ArrayList<>();
+
+		Object partBObj = PARTICIPANT_B.get(event);
+
+		if (partBObj == null)
+			return;
+//			throw new RuntimeException("Participant B is not present! " + xref.getId());
+
+		// Read the "to" location of participant B
+		Map toLoc = TO_LOCATION.getMapOrFirstInList(event);
+
+		List<Map> modifs = null;
+		if (PROTEIN_MODIFICATION.equal(predType))
+		{
+			modifs = new ArrayList<>();
+			Map<String, Object> map = new HashMap<>();
+			map.put(MODIFICATION_TYPE.getTag(), predSubType);
+			List sites = SITES.getList(event);
+			if (sites != null) map.put(SITES.getTag(), sites);
+			modifs.add(map);
+		}
+
+		Set<PhysicalEntity> pBs = new HashSet<>();
+
+		if (partBObj instanceof List)
+		{
+			processPartBList((List) partBObj, event, xref, predID, predType, predSubType, pAs, fromLoc, toLoc, modifs,
+				interactions, pBs);
+		}
+		else
+		{
+			processPartBMap((Map) partBObj, event, xref, predID, predType, predSubType, pAs, fromLoc, toLoc, modifs,
+				interactions, pBs);
+		}
+
+		if (BINDS.equal(predType))
+		{
+			Set<PhysicalEntity> set = new HashSet<>(pAs);
+			set.addAll(pBs);
+
+			if (set.size() > 1)
+			{
+				Complex complex = complexRep.getComplex(set);
+				Interaction inter = cnvReg.getConversion(set, Collections.singleton(complex), ComplexAssembly.class);
+				eventReg.register(predID, inter, complex);
+			}
+		}
+
+		if (!pAs.isEmpty() && !BINDS.equal(predType))
+		{
+			Interaction control = null;
+
+			// generate a complex if there is more than one participant A
+			Complex complex = null;
+			if (pAs.size() > 1)
+			{
+				complex = complexRep.getComplex(pAs);
+			}
+
+			for (Interaction inter : interactions)
+			{
+				control = ctrReg.getControl(complex == null ? pAs : Collections.singleton(complex), inter,
+					!(predSubType != null && predSubType.startsWith("negative")));
+
+				control.addXref(xref);
+				control.addComment(SENTENCE.getString(event));
+
+				tc.addTerm("Converted successfully");
+			}
+
+			eventReg.register(predID, control, eventReg.getTheProduct(predID));
+		}
 	}
 
-	// todo
-	private List getModifications(Map event, String intSubType)
+	private void processPartBList(List partBObj, Map event, Xref xref, String predID, String predType, String predSubType, Set<PhysicalEntity> pAs, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
 	{
+		for (Object o : partBObj)
+		{
+			processPartBMap((Map) o, event, xref, predID, predType, predSubType, pAs, fromLoc, toLoc, modifs, interactions, pBs);
+		}
+	}
+
+	private void processPartBMap(Map partBObj, Map event, Xref xref, String predID, String predType, String predSubType, Set<PhysicalEntity> pAs, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
+	{
+		if (isEvent(partBObj))
+		{
+			processEvent(partBObj, xref);
+			Interaction inter = eventReg.getTheInteraction(getPredicateIDOfEvent(partBObj));
+			if (inter != null) interactions.add(inter);
+		}
+		else
+		{
+			processPartB(partBObj, event, xref, predID, predType, predSubType, pAs, fromLoc, toLoc, modifs,
+				interactions, pBs);
+		}
+	}
+
+	private void processPartB(Map partBMap, Map event, Xref xref, String predID, String predType, String predSubType, Set<PhysicalEntity> pAs, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
+	{
+		// Generate participant B
+		PhysicalEntity pB = getParticipant(partBMap, null, fromLoc);
+
+		// Skip if no participant B is found
+		if (pB == null)
+		{
+			tc.addTerm("Participant B is null");
+			return;
+		}
+
+		pBs.add(pB);
+		PhysicalEntity pBm = null;
+
+
+		if (PROTEIN_MODIFICATION.equal(predType) || TRANSLOCATION.equal(predType))
+		{
+			pBm = getParticipant(partBMap, modifs, toLoc);
+		}
+
+		else if (ACTIVATION.equal(predType))
+		{
+			pBm = getParticipant(partBMap, Collections.singletonList(Constants.ACTIVE), toLoc);
+		}
+		else if (BINDS.equal(predType) || REGULATION.equal(predType))
+		{
+			// no pBm needed
+		}
+		else
+		{
+			System.err.println("Unhandled interaction type = " + predType);
+		}
+
+		// Swap modified participant B if the event is a removal of modification
+		if (isRemovalOfModification(predSubType))
+		{
+			PhysicalEntity temp = pB;
+			pB = pBm;
+			pBm = temp;
+		}
+
+		// Create the event
+
+		Interaction inter = null;
+
+		// If it is a binding event, skip it, it will be handles in upper methods.
+		if (BINDS.equal(predType))
+		{
+			// do nothing
+		}
+		// Otherwise it is a child of Conversion
+		else if (!REGULATION.equal(predType))
+		{
+			Class<? extends Conversion> cnvClazz;
+
+			// If it is a translocation, create a Transport event
+			if (TRANSLOCATION.equal(predType))
+			{
+				cnvClazz = Transport.class;
+			}
+			// Otherwise, it is a BiochemicalReaction
+			else
+			{
+				cnvClazz = BiochemicalReaction.class;
+			}
+
+			// create the Conversion
+			inter = cnvReg.getConversion(Collections.singleton(pB), Collections.singleton(pBm), cnvClazz);
+			eventReg.register(predID, inter, pBm);
+		}
+
+		if (inter != null)
+		{
+			interactions.add(inter);
+			inter.addXref(xref);
+			inter.addComment(SENTENCE.getString(event));
+		}
+	}
+
+	private boolean isRemovalOfModification(String predSubType)
+	{
+		return predSubType != null && predSubType.startsWith("de");
+	}
+
+	private String getNormalizedModType(String predSubType)
+	{
+		predSubType = predSubType.trim().toLowerCase();
+		if (predSubType.startsWith("de")) predSubType = predSubType.substring(2);
+		if (predSubType.startsWith("auto")) predSubType = predSubType.substring(4);
+		if (predSubType.endsWith("tion")) predSubType = predSubType.substring(0, predSubType.length() - 3) + "ed";
+		return predSubType;
+	}
+
+	private void processPartA(Map map, Xref xref, Set<PhysicalEntity> pAs)
+	{
+		if (isEvent(map))
+		{
+			processEvent(map, xref);
+			String id = getPredicateIDOfEvent(map);
+			PhysicalEntity product = eventReg.getTheProduct(id);
+			if (product != null)
+			{
+				pAs.add(product);
+			}
+		}
+		else
+		{
+			PhysicalEntity pe = getParticipant(map, null, null);
+			if (pe != null) pAs.add(pe);
+		}
+	}
+
+	private List getModifications(Map mapWithSites, String modifText)
+	{
+		String modification = getNormalizedModType(modifText);
+		List list = new ArrayList<>();
+
+		List sites = SITES.getList(mapWithSites);
+
+		if (sites == null || sites.isEmpty())
+		{
+			Map<String, String> map = initModifMap(modification);
+			list.add(map);
+		}
+		else
+		{
+			for (Object o : sites)
+			{
+				Map site = (Map) o;
+
+				Map<String, String> map = initModifMap(modification);
+
+				Integer pos = POSITION.getInt(site);
+				if (pos != null) map.put(POSITION.getTag(), pos.toString());
+				String aa = AA_CODE.getString(site);
+				if (AA_MAP.containsKey(aa)) aa = AA_MAP.get(aa);
+				if (aa != null) map.put(AA_CODE.getTag(), aa);
+				list.add(map);
+			}
+		}
+		return list;
+	}
+
+	private Map<String, String> initModifMap(String modification)
+	{
+		Map<String, String> map = new HashMap<>();
+		map.put(MODIFICATION_TYPE.getTag(), modification);
+		return map;
+	}
+
+	private boolean isEvent(Map map)
+	{
+		return PREDICATE.has(map);
+	}
+
+	private String getPredicateIDOfEvent(Map map)
+	{
+		Map predMap = PREDICATE.getMap(map);
+		if (predMap != null)
+		{
+			return PREDICATE_ID.getString(predMap);
+		}
 		return null;
 	}
 
@@ -363,112 +536,71 @@ public class FrextToBioPAX
 	}
 
 	/**
-	 * Gets the set of molecules from the given map or list in JSON.
-	 */
-	private Set<PhysicalEntity> getParticipants(Object o) throws IOException
-	{
-		if (o == null) return null;
-		if (o instanceof List) return getParticipants((List) o);
-		else
-		{
-			PhysicalEntity pe = getParticipant((Map) o, null, null);
-			if (pe != null) return Collections.singleton(pe);
-		}
-		return null;
-	}
-
-	/**
-	 * Gets the set of molecules from the given JSON list.
-	 */
-	private Set<PhysicalEntity> getParticipants(List list) throws IOException
-	{
-		Set<PhysicalEntity> pes = new HashSet<>();
-		for (Object o : list)
-		{
-			if (o instanceof Map)
-			{
-				PhysicalEntity pe = getParticipant((Map) o, null, null);
-				if (pe != null) pes.add(pe);
-			}
-			else pes.addAll(getParticipants((List) o));
-		}
-		return pes;
-	}
-
-	/**
 	 * Generates the PhysicalEntity.
 	 */
-	private PhysicalEntity getParticipant(Map map, Object modifs, Map<String, String> location) throws IOException
+	private PhysicalEntity getParticipant(Map map, List modifs, Map location)
 	{
 		if (map == null) return null;
 
-		String type = getString(map, ENTITY_TYPE);
-		String id = getString(map, IDENTIFIER);
+		String type = ENTITY_TYPE.getString(map);
+		String id = IDENTIFIER.getString(map);
 
 		if (type == null || type.equals("unknown")) return null;
 		if (id == null) return null;
 
-		String idType = "";
+		IDType idType = null;
 		if (id.contains(":"))
 		{
-			idType = id.substring(0, id.indexOf(":")).trim();
+			idType = IDType.get(id.substring(0, id.indexOf(":")).trim());
 			id = id.substring(id.indexOf(":") + 1);
 		}
 
-		if (!idType.equalsIgnoreCase("uniprot") &&
-			!idType.equalsIgnoreCase("pubchem") &&
-			!idType.equalsIgnoreCase("chebi") &&
-			!idType.equalsIgnoreCase("interpro")
-			)
-		{
-			return null;
-		}
+		if (idType == null) return null;
 
-		String name = getString(map, ENTITY_TEXT);
+		String name = ENTITY_TEXT.getString(map);
 
-		List feats = getList(map, FEATURES);
-		State st = feats == null && modifs == null && location == null ? UNMODIFIED : new State();
+		List feats = MODIFICATIONS.getList(map);
+		State st = feats == null && modifs == null && location == null ? Constants.UNMODIFIED : new State();
 
 		addFeaturesToState(st, feats);
-		addModificationsToState(st, modifs);
+		addFeaturesToState(st, modifs);
 		addLocationToState(st, location);
 
-		if (id.startsWith("CHEBI:")) type = CHEMICAL[0];
+		// Decide the type of the entity by idType. If fails, then use type.
 
-		if (equal(type, PROTEIN))
+		if (idType != IDType.UAZ)
 		{
-			return protRep.getProtein(id, name, st);
+			if (idType.isProtein)
+			{
+				return protRep.getProtein(id, idType, name, st);
+			} else if (idType.isChemical)
+			{
+				return chemRep.getChemical(id, idType, name, st);
+			} else if (idType.isFamily)
+			{
+				return famRep.getFamily(id, idType, name, st);
+			} else if (idType.isProcess)
+			{
+				return biopRep.getBioprocess(id, idType, name, st);
+			}
 		}
-		else if (equal(type, CHEMICAL))
+		else if (PROTEIN.equal(type))
 		{
-			return chemRep.getChemical(id, name, st);
+			return protRep.getProtein(id, idType, name, st);
 		}
-		else if (equal(type, FAMILY))
+		else if (CHEMICAL.equal(type))
 		{
-			return famRep.getFamily(id, name, st);
+			return chemRep.getChemical(id, idType, name, st);
+		}
+		else if (FAMILY.equal(type))
+		{
+			return famRep.getFamily(id, idType, name, st);
+		}
+		else if (BIOPROCESS.equal(type))
+		{
+			return biopRep.getBioprocess(id, idType, name, st);
 		}
 		return null;
-	}
-
-	/**
-	 * A small conversion to the format of the locations in the map.
-	 * todo: This is probably unnecessary and needs to be revisited.
-	 */
-	private Map<String, String> readLocation(Map map)
-	{
-		if (map == null) return null;
-		String fromText = getString(map, ENTITY_TEXT);
-		String fromID = getString(map, IDENTIFIER);
-		return getNameIDMap(fromText, fromID);
-	}
-
-	private Map<String, String> getNameIDMap(String name, String id)
-	{
-		if (name == null && id == null) return null;
-		Map<String, String> map = new HashMap<>();
-		map.put("name", name);
-		map.put("id", id);
-		return map;
 	}
 
 	private void addFeaturesToState(State st, List feats)
@@ -478,126 +610,31 @@ public class FrextToBioPAX
 		for (Object o : feats)
 		{
 			Map m = (Map) o;
-			String mType = getString(m, MODIFICATION_TYPE);
+			String mType = MODIFICATION_TYPE.getString(m);
 			if (mType == null) continue;
 
-			String[] pos = getPositions(m);
-			if (pos != null && pos.length > 0 && pos[0] != null)
+			List mods = getModifications(m, mType);
+
+			for (Object mod : mods)
 			{
-				for (String p : pos)
-				{
-					if (p == null) continue;
-					st.modifications.add(mType + "@" + p);
-				}
+				String type = MODIFICATION_TYPE.getString((Map) mod);
+				Integer pos = POSITION.getInt((Map) mod);
+				String aa = AA_CODE.getString((Map) mod);
+
+				st.addModification(type, aa, pos);
 			}
-			else st.modifications.add(mType);
 		}
 	}
 
-	private void addLocationToState(State st, Map<String, String> map)
+	private void addLocationToState(State st, Map map)
 	{
 		if (map == null) return;
-		String name = map.get("name");
-		String id = map.get("id");
+		String name = ENTITY_TEXT.getString(map);
+		String id = IDENTIFIER.getString(map);
 		if (name == null) name = id;
 		if (id == null) id = name;
 		st.compartmentText = name;
 		st.compartmentID = id;
-	}
-
-	private void addModificationsToState(State st, Object o)
-	{
-		if (o == null) return;
-		if (o instanceof List)
-		{
-			for (Object oo : (List) o)
-			{
-				addModificationtoState(st, (Map) oo);
-			}
-		}
-		else addModificationtoState(st, (Map) o);
-	}
-
-	private void addModificationtoState(State st, Map map)
-	{
-		String type = getString(map, MODIFICATION_TYPE);
-		String[] positions = getPositions(map);
-		if (positions != null && positions.length > 0 && positions[0] != null)
-		{
-			for (String p : positions)
-			{
-				st.modifications.add(type + "@" + p);
-			}
-		}
-		else st.modifications.add(type);
-	}
-
-	private String[] getPositions(Map m)
-	{
-		if (!has(m, POSITION)) return null;
-
-		if (isList(m, POSITION))
-		{
-			List list = getList(m, POSITION);
-
-			List<String> posList = new ArrayList<>();
-
-			for (Object o : list)
-			{
-				if (o instanceof Integer)
-				{
-					posList.add(getPositionString(o));
-				}
-			}
-
-			return posList.toArray(new String[posList.size()]);
-		}
-		else
-		{
-			Object o = get(m, POSITION);
-			String str = getPositionString(o);
-			if (str == null) return null;
-			return new String[]{str};
-		}
-	}
-
-	private String getPositionString(Object o)
-	{
-		if (o instanceof Integer)
-		{
-			return o.toString();
-		}
-		else
-		{
-			String s = (String) o;
-
-			int i = getStartIndexOfEndNumber(s);
-			if (i < 0) return null;
-
-			int pos = Integer.parseInt(s.substring(i));
-
-			s = s.substring(0, i).trim().toLowerCase();
-
-			String aa = AA_MAP.get(s);
-
-			return aa == null ? "" + pos : aa + pos;
-		}
-	}
-
-	private int getStartIndexOfEndNumber(String s)
-	{
-		int x = -1;
-		for (int i = s.length() - 1; i >= 0; i--)
-		{
-			if (!Character.isDigit(s.charAt(i)))
-			{
-				x = i + 1;
-				break;
-			}
-		}
-
-		if (x >= s.length()) return -1;
-		else return x;
 	}
 
 	public void writeModel(String filename) throws FileNotFoundException
@@ -616,17 +653,19 @@ public class FrextToBioPAX
 		{
 			File[] files = new File(dir).listFiles();
 
-			boolean multiFile = files != null &&  files.length > 1;
+			boolean hasJSON = files != null &&
+				Arrays.stream(files).filter(f -> f.getName().endsWith(".json")).findAny().isPresent();
 
-			Progress p = watchProgress && multiFile ? new Progress(files.length, "Processing directory: " + dir) : null;
+			Progress p = watchProgress && hasJSON ? new Progress(files.length, "Processing directory: " + dir) : null;
 
 			for (File f : files)
 			{
-				if (watchProgress && multiFile) p.tick();
-				if (f.isDirectory()) covertFolders(false, f.getPath());
+				if (watchProgress && hasJSON) p.tick();
+				if (f.isDirectory()) covertFolders(!hasJSON, f.getPath());
 				else if (f.getName().endsWith(".json"))
 				{
-					addToModel(watchProgress && !multiFile, f.getPath());
+					Object o = JsonUtils.fromInputStream(new FileInputStream(f.getPath()));
+					addToModel((Map) o);
 				}
 
 //				if (Math.random() < 0.1) break;
@@ -634,26 +673,6 @@ public class FrextToBioPAX
 		}
 	}
 
-
-
-	public void addToModel(boolean watchProgress, String file) throws IOException
-	{
-		Object o = JsonUtils.fromInputStream(new FileInputStream(file));
-		addToModel((Map) o);
-	}
-
-	void printClusterScoreDistribution(List list)
-	{
-		TermCounter tc = new TermCounter();
-		for (Object o : list)
-		{
-			Map map = (Map) o;
-			Object x = get(map, CLUSTER_SCORE);
-			if (x != null) tc.addTerm(x.getClass().getName());
-			else tc.addTerm("null");
-		}
-		tc.print();
-	}
 
 	public static void main(String[] args) throws IOException
 	{

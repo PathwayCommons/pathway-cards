@@ -16,7 +16,7 @@ public class HasSmallerID extends ConstraintAdapter
 	@Override
 	public boolean satisfies(Match match, int... ind)
 	{
-		return match.get(ind[0]).getRDFId().compareTo(
-			match.get(ind[1]).getRDFId()) < 0;
+		return match.get(ind[0]).getUri().compareTo(
+			match.get(ind[1]).getUri()) < 0;
 	}
 }

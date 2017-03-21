@@ -15,10 +15,10 @@ public class Mocker
 		return factory.createModel();
 	}
 
-	public static State getMockState(String text)
+	public static State getMockState(String text, String ss, Integer pos)
 	{
 		State state = new State();
-		if (text != null) state.addModification(text);
+		if (text != null) state.addModification(text, ss, pos);
 		return state;
 	}
 }

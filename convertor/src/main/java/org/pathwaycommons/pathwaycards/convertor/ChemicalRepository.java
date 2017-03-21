@@ -36,31 +36,31 @@ public class ChemicalRepository
 		this.model = model;
 	}
 
-	public SmallMolecule getChemical(String id, String name, State st)
+	public SmallMolecule getChemical(String id, IDType idType, String name, State st)
 	{
-		SmallMoleculeReference smr = getSMR(id, name);
+		SmallMoleculeReference smr = getSMR(id, idType, name);
 		return getSM(smr, st);
 	}
 
-	private SmallMoleculeReference getSMR(String id, String name)
+	private SmallMoleculeReference getSMR(String id, IDType idType, String name)
 	{
 		if (idToSMR.containsKey(id)) return idToSMR.get(id);
-		SmallMoleculeReference smr = generateSMR(id, name);
+		SmallMoleculeReference smr = generateSMR(id, idType, name);
 		idToSMR.put(id, smr);
 		return smr;
 	}
 
-	private SmallMoleculeReference generateSMR(String id, String name)
+	private SmallMoleculeReference generateSMR(String id, IDType idType, String name)
 	{
+		if (!idType.isChemical)
+		{
+			throw new IllegalArgumentException("Wrong ID type for a small molecule: " + idType);
+		}
+
 		SmallMoleculeReference smr = factory.create(
 			SmallMoleculeReference.class, "SmallMoleculeReference/" + NextNumber.get());
 		model.add(smr);
-		Xref xref = factory.create(
-			UnificationXref.class, id.toUpperCase().startsWith("CHEBI") ? "http://identifiers.org/chebi/" + id : "http://identifiers.org/pubchem.compound/" + id);
-		model.add(xref);
-		xref.setDb(id.toUpperCase().startsWith("CHEBI") ? "ChEBI" : "PubChem-compound");
-		xref.setId(id);
-		smr.addXref(xref);
+		idType.addUnifXref(smr, id, model, factory);
 
 		smr.setDisplayName(name);
 		return smr;

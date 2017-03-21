@@ -25,7 +25,7 @@ public class Interpro
 		}
 	}
 
-	public static Set<String> getMembers(String id) throws IOException
+	public static Set<String> getMembers(String id)
 	{
 		if (map.containsKey(id)) return map.get(id);
 
@@ -35,15 +35,22 @@ public class Interpro
 		return set;
 	}
 
-	private static Set<String> spiderMembers(String id) throws IOException
+	private static Set<String> spiderMembers(String id)
 	{
 		Set<String> set = new HashSet<>();
-		Scanner sc = new Scanner(new URL("https://www.ebi.ac.uk/interpro/entry/" + id +
-			"/proteins-matched?species=9606&export=fasta").openStream());
-		while (sc.hasNextLine())
+		try
 		{
-			String line = sc.nextLine();
-			if (line.startsWith(">")) set.add(line.substring(1));
+			Scanner sc = new Scanner(new URL("https://www.ebi.ac.uk/interpro/entry/" + id +
+				"/proteins-matched?species=9606&export=fasta").openStream());
+			while (sc.hasNextLine())
+			{
+				String line = sc.nextLine();
+				if (line.startsWith(">")) set.add(line.substring(1));
+			}
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
 		}
 		return set;
 	}

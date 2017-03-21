@@ -14,12 +14,12 @@ public class StateTest
 	public void testEquals() throws Exception
 	{
 		State state1 = new State();
-		String m1 = "phosphorylated@S13";
-		state1.addModification(m1);
+		String m1 = "phosphorylated";
+		state1.addModification(m1, "serine", 13);
 
 		State state2 = new State();
-		String m2 = "phosphorylated@S13";
-		state2.addModification(m2);
+		String m2 = "phosphorylated";
+		state2.addModification(m2, "serine", 13);
 
 		Assert.assertEquals(true, state1.equals(state2));
 

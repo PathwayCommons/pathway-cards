@@ -33,14 +33,15 @@ public class ProteinRepositoryTest
 		String uniprotID = "P05019";
 		String text = "IGF-1";
 		String state1 = "phosphorylated";
-		Protein p1 = proteinRep.getProtein(uniprotID, text, Mocker.getMockState(state1));
+		IDType idType = IDType.UniProt;
+		Protein p1 = proteinRep.getProtein(uniprotID, idType, text, Mocker.getMockState(state1, "S", 10));
 
-		Protein p2 = proteinRep.getProtein(uniprotID, "alternative text", Mocker.getMockState(state1));
+		Protein p2 = proteinRep.getProtein(uniprotID, idType, "alternative text", Mocker.getMockState(state1, "S", 10));
 
 		Assert.assertEquals(true, p1 == p2);
 
 		String state2 = "acetylated";
-		Protein p3 = proteinRep.getProtein(uniprotID, text, Mocker.getMockState(state2));
+		Protein p3 = proteinRep.getProtein(uniprotID, idType, text, Mocker.getMockState(state2, "T", 20));
 
 		Assert.assertEquals(false, p1.equals(p3));
 		Assert.assertEquals(true, p1.getEntityReference() == p3.getEntityReference());

@@ -28,10 +28,10 @@ public class BioPAXToSIF
 	{
 		Kronometre kron = new Kronometre();
 
-		String base = "/home/babur/Documents/DARPA/BigMech/";
+		String base = "/media/babur/6TB1/REACH-cards/";
 		SimpleIOHandler io = new SimpleIOHandler();
-		Model model = io.convertFromOWL(new FileInputStream(base + "REACH.owl"));
-		String sifFilename = base + "REACH.sif";
+		Model model = io.convertFromOWL(new FileInputStream(base + "temp.owl"));
+		String sifFilename = base + "temp.sif";
 		convert(model, sifFilename);
 
 //		printScoreDistribution(sifFilename);
