@@ -270,13 +270,11 @@ public class FrextToBioPAX
 
 		if (partBObj instanceof List)
 		{
-			processPartBList((List) partBObj, event, xref, predID, predType, predSubType, pAs, fromLoc, toLoc, modifs,
-				interactions, pBs);
+			processPartBList((List) partBObj, xref, predID, predType, predSubType, fromLoc, toLoc, modifs, interactions, pBs);
 		}
 		else
 		{
-			processPartBMap((Map) partBObj, event, xref, predID, predType, predSubType, pAs, fromLoc, toLoc, modifs,
-				interactions, pBs);
+			processPartBMap((Map) partBObj, xref, predID, predType, predSubType, fromLoc, toLoc, modifs, interactions, pBs);
 		}
 
 		if (BINDS.equal(predType))
@@ -289,6 +287,9 @@ public class FrextToBioPAX
 				Complex complex = complexRep.getComplex(set);
 				Interaction inter = cnvReg.getConversion(set, Collections.singleton(complex), ComplexAssembly.class);
 				eventReg.register(predID, inter, complex);
+
+				inter.addXref(xref);
+				inter.addComment(xref.getId() + ": " + SENTENCE.getString(event).replaceAll(";", ","));
 			}
 		}
 
@@ -309,7 +310,7 @@ public class FrextToBioPAX
 					!(predSubType != null && predSubType.startsWith("negative")));
 
 				control.addXref(xref);
-				control.addComment(SENTENCE.getString(event));
+				control.addComment(xref.getId() + ": " + SENTENCE.getString(event).replaceAll(";", ","));
 
 				tc.addTerm("Converted successfully");
 			}
@@ -318,15 +319,15 @@ public class FrextToBioPAX
 		}
 	}
 
-	private void processPartBList(List partBObj, Map event, Xref xref, String predID, String predType, String predSubType, Set<PhysicalEntity> pAs, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
+	private void processPartBList(List partBObj, Xref xref, String predID, String predType, String predSubType, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
 	{
 		for (Object o : partBObj)
 		{
-			processPartBMap((Map) o, event, xref, predID, predType, predSubType, pAs, fromLoc, toLoc, modifs, interactions, pBs);
+			processPartBMap((Map) o, xref, predID, predType, predSubType, fromLoc, toLoc, modifs, interactions, pBs);
 		}
 	}
 
-	private void processPartBMap(Map partBObj, Map event, Xref xref, String predID, String predType, String predSubType, Set<PhysicalEntity> pAs, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
+	private void processPartBMap(Map partBObj, Xref xref, String predID, String predType, String predSubType, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
 	{
 		if (isEvent(partBObj))
 		{
@@ -336,12 +337,11 @@ public class FrextToBioPAX
 		}
 		else
 		{
-			processPartB(partBObj, event, xref, predID, predType, predSubType, pAs, fromLoc, toLoc, modifs,
-				interactions, pBs);
+			processPartB(partBObj, predID, predType, predSubType, fromLoc, toLoc, modifs, interactions, pBs);
 		}
 	}
 
-	private void processPartB(Map partBMap, Map event, Xref xref, String predID, String predType, String predSubType, Set<PhysicalEntity> pAs, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
+	private void processPartB(Map partBMap, String predID, String predType, String predSubType, Map fromLoc, Map toLoc, List<Map> modifs, List<Interaction> interactions, Set<PhysicalEntity> pBs)
 	{
 		// Generate participant B
 		PhysicalEntity pB = getParticipant(partBMap, null, fromLoc);
@@ -411,13 +411,7 @@ public class FrextToBioPAX
 			// create the Conversion
 			inter = cnvReg.getConversion(Collections.singleton(pB), Collections.singleton(pBm), cnvClazz);
 			eventReg.register(predID, inter, pBm);
-		}
-
-		if (inter != null)
-		{
 			interactions.add(inter);
-			inter.addXref(xref);
-			inter.addComment(SENTENCE.getString(event));
 		}
 	}
 
@@ -677,9 +671,10 @@ public class FrextToBioPAX
 	public static void main(String[] args) throws IOException
 	{
 		FrextToBioPAX c = new FrextToBioPAX();
-		c.covertFolders(true, "/media/babur/6TB1/REACH-cards/sample");
+		c.covertFolders(true, "/media/babur/6TB1/REACH-cards/frext-bigrun_170320");
+//		c.covertFolders(true, "/media/babur/6TB1/REACH-cards/sample2");
 		Interpro.write();
-		c.writeModel("/media/babur/6TB1/REACH-cards/temp.owl");
+		c.writeModel("/media/babur/6TB1/REACH-cards/REACH.owl");
 
 		System.out.println("ProteinRepository.mappedUniprot.size() = " + ProteinRepository.mappedUniprot.size());
 		System.out.println("ProteinRepository.unmappedUniprot.size() = " + ProteinRepository.unmappedUniprot.size());

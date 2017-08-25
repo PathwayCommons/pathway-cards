@@ -30,8 +30,8 @@ public class BioPAXToSIF
 
 		String base = "/media/babur/6TB1/REACH-cards/";
 		SimpleIOHandler io = new SimpleIOHandler();
-		Model model = io.convertFromOWL(new FileInputStream(base + "temp.owl"));
-		String sifFilename = base + "temp.sif";
+		Model model = io.convertFromOWL(new FileInputStream(base + "REACH.owl"));
+		String sifFilename = base + "REACH.sif";
 		convert(model, sifFilename);
 
 //		printScoreDistribution(sifFilename);
@@ -43,10 +43,9 @@ public class BioPAXToSIF
 
 	public static void convert(Model model, String outFilename) throws FileNotFoundException
 	{
-		SIFSearcher searcher = new SIFSearcher(new Fetcher(), SIFEnum.CONTROLS_STATE_CHANGE_OF,
-			SIFEnum.CONTROLS_EXPRESSION_OF, SIFEnum.IN_COMPLEX_WITH, SIFEnum.INTERACTS_WITH);
+		SIFSearcher searcher = new SIFSearcher(new Fetcher(), new ControlsStateChangeOfMiner(), new InComplexWithMiner());
 
-		SIFToText stt = new CustomFormat(OutputColumn.Type.PMC.toString(), OutputColumn.Type.COMMENTS.toString());
+		SIFToText stt = new CustomFormat(OutputColumn.Type.MEDIATOR.toString(), OutputColumn.Type.COMMENTS.toString());
 
 		searcher.searchSIF(model, new FileOutputStream(outFilename), stt);
 	}
