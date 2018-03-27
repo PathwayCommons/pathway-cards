@@ -670,15 +670,19 @@ public class FrextToBioPAX
 
 	public static void main(String[] args) throws IOException
 	{
-		FrextToBioPAX c = new FrextToBioPAX();
-		c.covertFolders(true, "/media/babur/6TB1/REACH-cards/frext-bigrun_170320");
-//		c.covertFolders(true, "/media/babur/6TB1/REACH-cards/sample2");
-		Interpro.write();
-		c.writeModel("/media/babur/6TB1/REACH-cards/REACH.owl");
+		System.out.println(Arrays.toString(args));
 
-		System.out.println("ProteinRepository.mappedUniprot.size() = " + ProteinRepository.mappedUniprot.size());
-		System.out.println("ProteinRepository.unmappedUniprot.size() = " + ProteinRepository.unmappedUniprot.size());
-		System.out.println(new ArrayList<>(ProteinRepository.unmappedUniprot));
-		c.tc.print();
+		FrextToBioPAX c = new FrextToBioPAX();
+		c.covertFolders(true, args[0]);
+		c.writeModel(args[1]);
+
+//		c.covertFolders(true, "/media/babur/6TB1/REACH-cards/frext-bigrun_170320");
+//		Interpro.write();
+//		c.writeModel("/media/babur/6TB1/REACH-cards/REACH.owl");
+//
+//		System.out.println("ProteinRepository.mappedUniprot.size() = " + ProteinRepository.mappedUniprot.size());
+//		System.out.println("ProteinRepository.unmappedUniprot.size() = " + ProteinRepository.unmappedUniprot.size());
+//		System.out.println(new ArrayList<>(ProteinRepository.unmappedUniprot));
+//		c.tc.print();
 	}
 }
