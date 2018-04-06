@@ -637,6 +637,11 @@ public class FrextToBioPAX
 		io.convertToOWL(model, new FileOutputStream(filename));
 	}
 
+	public String convertToOWL()
+	{
+		return SimpleIOHandler.convertToOwl(model);
+	}
+
 	/**
 	 * Make sure that directories are not nested. Otherwise duplications will happen.
 	 * @param dirs
