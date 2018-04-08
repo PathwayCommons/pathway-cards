@@ -26,5 +26,6 @@
 		<module>nlp</module>
 		<module>extractor</module>
 		<module>comparator</module>
+    <module>convertor</module>
 	</modules>
 </project>
